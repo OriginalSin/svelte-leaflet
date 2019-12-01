@@ -19,10 +19,6 @@ import { NotFound } from '/pages/errors';
 
 let routes = [
 	{
-		path: '',
-		component: Home,
-	},
-	{
 		path: '/home',
 		component: Home,
 	},
@@ -108,7 +104,7 @@ let routes = [
 	},
 	{
 		path: '*',
-		component: NotFound,
+		component: Home,
 	},
 ];
 
