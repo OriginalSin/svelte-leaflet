@@ -11,7 +11,7 @@ const app = new App({
 	intro: false,
 });
 
-//page.base(location.href.replace('/index.html', ''));
+page.base(location.pathname.replace('/index.html', ''));
 page('*', (ctx, next) => {
 	const qs = ctx.querystring ? ctx.querystring.replace('?', '').split('&') : [];
 	ctx.query = qs.reduce((query, param) => {
