@@ -44196,7 +44196,7 @@ var app = (function () {
 		intro: false,
 	});
 
-	page.base(location.pathname.replace('/index.html', ''));
+	// page.base(location.pathname.replace('/index.html', ''));
 	page('*', (ctx, next) => {
 		const qs = ctx.querystring ? ctx.querystring.replace('?', '').split('&') : [];
 		ctx.query = qs.reduce((query, param) => {
