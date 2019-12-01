@@ -1,8 +1,8 @@
 {
-  "name": "@vikignt/svelte-ui",
-  "version": "0.2.0",
-  "description": "Simple svelte 3 ui components",
-  "author": "viking <vikignt@gmail.com>",
+  "name": "svelte-leaflet",
+  "version": "0.1.9",
+  "description": "Leaflet Components with SvelteJS",
+  "author": "OriginalSin <serg@auchat.ru>",
   "repository": {
     "type": "git",
     "url": "https://github.com/vikignt/svelte-ui.git"
@@ -29,9 +29,13 @@
   "dependencies": {
     "leaflet": "^1.6.0"
   },
+  "bugs": {
+    "url": "https://github.com/OriginalSin/svelte-leaflet/issues"
+  },
+  "homepage": "https://OriginalSin.github.io/svelte-leaflet/",
   "keywords": [
     "svelte",
-    "svelte-ui",
+    "leaflet",
     "material",
     "ui"
   ],

@@ -1,11 +1,11 @@
 {
-    "name": "svelte-app",
-    "version": "0.2.0",
-    "description": "Example of using @vikignt/svelte-ui components",
-    "author": "viking <vikignt@gmail.com>",
+    "name": "svelte-leaflet",
+    "version": "0.1.9",
+    "description": "Leaflet Components with SvelteJS",
+	"author": "OriginalSin <serg@auchat.ru>",
     "repository": {
         "type": "git",
-        "url": "https://github.com/vikignt/svelte-ui.git"
+        "url": "https://github.com/OriginalSin/svelte-leaflet.git"
     },
     "license": "MIT",
     "scripts": {
