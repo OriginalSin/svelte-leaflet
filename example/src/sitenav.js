@@ -19,7 +19,11 @@ import { NotFound } from '/pages/errors';
 
 let routes = [
 	{
-		path: '/',
+		path: '',
+		component: Home,
+	},
+	{
+		path: '/home',
 		component: Home,
 	},
 	{

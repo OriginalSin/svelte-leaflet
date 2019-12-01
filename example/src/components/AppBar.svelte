@@ -10,7 +10,7 @@
 		<Icon path={menu} />
 	</Button>
 
-	<a id="brand" class="icon" href="/">
+	<a id="brand" class="icon" href="/home">
 		<Icon path={home} />
 	</a>
 

@@ -8,27 +8,6 @@ Set of the Leaflet components for [Svelte](https://svelte.dev)
 
 _Note that you will need to have [Node.js](https://nodejs.org) installed_
 
-```bash
-npm install --save-dev @vikignt/svelte-ui
-```
-
-## Usage
-
-```html
-<Textfield bind:value filled label="Name" message="Enter your name" />
-
-<h1>Hello {value}!</h1>
-
-<script>
-    // import any components you want
-    import { Textfield } from '@vikignt/svelte-ui';
-
-    let value = 'world';
-</script>
-```
-
-This code on the [Svelte REPL](https://svelte.dev/repl/5cae739a3a2f4208a48fd2822061b164?version=3.12.1)
-
 ## Quick start with new project
 
 Create a new project based on [sveltejs/template](https://github.com/sveltejs/template)
