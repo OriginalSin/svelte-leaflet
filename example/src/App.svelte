@@ -124,6 +124,7 @@
 		margin-top: 0;
 	}
 	.nav-panel {
+		z-index: 1000;
 		position: fixed;
 		top: 64px;
 		width: 200px;

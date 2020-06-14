@@ -1,5 +1,5 @@
 
-(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.head.appendChild(r) })(window.document);
+(function(l, r) { if (l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (window.location.host || 'localhost').split(':')[0] + ':35729/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(window.document);
 var app = (function () {
 	'use strict';
 
@@ -71,11 +71,11 @@ var app = (function () {
 	      var type = el.type;
 	      var tagName = el.tagName;
 
-	      if (tagName == 'INPUT' && inputTypesWhitelist[type] && !el.readOnly) {
+	      if (tagName === 'INPUT' && inputTypesWhitelist[type] && !el.readOnly) {
 	        return true;
 	      }
 
-	      if (tagName == 'TEXTAREA' && !el.readOnly) {
+	      if (tagName === 'TEXTAREA' && !el.readOnly) {
 	        return true;
 	      }
 
@@ -183,7 +183,6 @@ var app = (function () {
 	        window.clearTimeout(hadFocusVisibleRecentlyTimeout);
 	        hadFocusVisibleRecentlyTimeout = window.setTimeout(function() {
 	          hadFocusVisibleRecently = false;
-	          window.clearTimeout(hadFocusVisibleRecentlyTimeout);
 	        }, 100);
 	        removeFocusVisibleClass(e.target);
 	      }
@@ -195,7 +194,7 @@ var app = (function () {
 	     * @param {Event} e
 	     */
 	    function onVisibilityChange(e) {
-	      if (document.visibilityState == 'hidden') {
+	      if (document.visibilityState === 'hidden') {
 	        // If the tab becomes active again, the browser will handle calling focus
 	        // on the element (Safari actually calls it twice).
 	        // If this tab change caused a blur on an element with focus-visible,
@@ -285,6 +284,7 @@ var app = (function () {
 	      scope.host.setAttribute('data-js-focus-visible', '');
 	    } else if (scope.nodeType === Node.DOCUMENT_NODE) {
 	      document.documentElement.classList.add('js-focus-visible');
+	      document.documentElement.setAttribute('data-js-focus-visible', '');
 	    }
 	  }
 
@@ -727,7 +727,7 @@ var app = (function () {
 	   * Module dependencies.
 	   */
 
-
+	  
 
 	  /**
 	   * Short-cuts for global-object checks
@@ -1206,7 +1206,6 @@ var app = (function () {
 	   * @param {string} href
 	   * @api public
 	   */
-
 	  Page.prototype.sameOrigin = function(href) {
 	    if(!href || !isLocation) return false;
 
@@ -1216,13 +1215,16 @@ var app = (function () {
 	    var loc = window.location;
 
 	    /*
-	       when the port is the default http port 80, internet explorer 11
-	       returns an empty string for loc.port, so we need to compare loc.port
-	       with an empty string if url.port is the default port 80.
+	       When the port is the default http port 80 for http, or 443 for
+	       https, internet explorer 11 returns an empty string for loc.port,
+	       so we need to compare loc.port with an empty string if url.port
+	       is the default port 80 or 443.
+	       Also the comparition with `port` is changed from `===` to `==` because
+	       `port` can be a string sometimes. This only applies to ie11.
 	    */
 	    return loc.protocol === url.protocol &&
 	      loc.hostname === url.hostname &&
-	      (loc.port === url.port || loc.port === '' && url.port === 80);
+	      (loc.port === url.port || loc.port === '' && (url.port == 80 || url.port == 443)); // jshint ignore:line
 	  };
 
 	  /**
@@ -1470,7 +1472,7 @@ var app = (function () {
 	  function Route(path, options, page) {
 	    var _page = this.page = page || globalPage;
 	    var opts = options || {};
-	    opts.strict = opts.strict || page._strict;
+	    opts.strict = opts.strict || _page._strict;
 	    this.path = (path === '*') ? '(.*)' : path;
 	    this.method = 'GET';
 	    this.regexp = pathToRegexp_1(this.path, this.keys = [], opts);
@@ -1488,7 +1490,10 @@ var app = (function () {
 	  Route.prototype.middleware = function(fn) {
 	    var self = this;
 	    return function(ctx, next) {
-	      if (self.match(ctx.path, ctx.params)) return fn(ctx, next);
+	      if (self.match(ctx.path, ctx.params)) {
+	        ctx.routePath = self.path;
+	        return fn(ctx, next);
+	      }
 	      next();
 	    };
 	  };
@@ -1510,7 +1515,7 @@ var app = (function () {
 	      m = this.regexp.exec(decodeURIComponent(pathname));
 
 	    if (!m) return false;
-		  
+
 	    delete params[0];
 
 	    for (var i = 1, len = m.length; i < len; ++i) {
@@ -1569,12 +1574,15 @@ var app = (function () {
 	    return a != a ? b == b : a !== b || ((a && typeof a === 'object') || typeof a === 'function');
 	}
 	function validate_store(store, name) {
-	    if (!store || typeof store.subscribe !== 'function') {
+	    if (store != null && typeof store.subscribe !== 'function') {
 	        throw new Error(`'${name}' is not a store with a 'subscribe' method`);
 	    }
 	}
-	function subscribe(store, callback) {
-	    const unsub = store.subscribe(callback);
+	function subscribe(store, ...callbacks) {
+	    if (store == null) {
+	        return noop;
+	    }
+	    const unsub = store.subscribe(...callbacks);
 	    return unsub.unsubscribe ? () => unsub.unsubscribe() : unsub;
 	}
 	function component_subscribe(component, store, callback) {
@@ -1592,9 +1600,29 @@ var app = (function () {
 	        : $$scope.ctx;
 	}
 	function get_slot_changes(definition, $$scope, dirty, fn) {
-	    return definition[2] && fn
-	        ? $$scope.dirty | definition[2](fn(dirty))
-	        : $$scope.dirty;
+	    if (definition[2] && fn) {
+	        const lets = definition[2](fn(dirty));
+	        if ($$scope.dirty === undefined) {
+	            return lets;
+	        }
+	        if (typeof lets === 'object') {
+	            const merged = [];
+	            const len = Math.max($$scope.dirty.length, lets.length);
+	            for (let i = 0; i < len; i += 1) {
+	                merged[i] = $$scope.dirty[i] | lets[i];
+	            }
+	            return merged;
+	        }
+	        return $$scope.dirty | lets;
+	    }
+	    return $$scope.dirty;
+	}
+	function update_slot(slot, slot_definition, ctx, $$scope, dirty, get_slot_changes_fn, get_slot_context_fn) {
+	    const slot_changes = get_slot_changes(slot_definition, $$scope, dirty, get_slot_changes_fn);
+	    if (slot_changes) {
+	        const slot_context = get_slot_context(slot_definition, ctx, $$scope, get_slot_context_fn);
+	        slot.p(slot_context, slot_changes);
+	    }
 	}
 	function exclude_internal_props(props) {
 	    const result = {};
@@ -1609,6 +1637,9 @@ var app = (function () {
 	function set_store_value(store, ret, value = ret) {
 	    store.set(value);
 	    return ret;
+	}
+	function action_destroyer(action_result) {
+	    return action_result && is_function(action_result.destroy) ? action_result.destroy : noop;
 	}
 
 	const is_client = typeof window !== 'undefined';
@@ -1703,6 +1734,9 @@ var app = (function () {
 	        else if (key === 'style') {
 	            node.style.cssText = attributes[key];
 	        }
+	        else if (key === '__value') {
+	            node.value = node[key] = attributes[key];
+	        }
 	        else if (descriptors[key] && descriptors[key].set) {
 	            node[key] = attributes[key];
 	        }
@@ -1718,9 +1752,7 @@ var app = (function () {
 	    return Array.from(element.childNodes);
 	}
 	function set_input_value(input, value) {
-	    if (value != null || input.value) {
-	        input.value = value;
-	    }
+	    input.value = value == null ? '' : value;
 	}
 	function set_style(node, key, value, important) {
 	    node.style.setProperty(key, value, important ? 'important' : '');
@@ -1734,34 +1766,39 @@ var app = (function () {
 	    return e;
 	}
 	class HtmlTag {
-	    constructor(html, anchor = null) {
-	        this.e = element('div');
+	    constructor(anchor = null) {
 	        this.a = anchor;
-	        this.u(html);
+	        this.e = this.n = null;
 	    }
-	    m(target, anchor = null) {
-	        for (let i = 0; i < this.n.length; i += 1) {
-	            insert(target, this.n[i], anchor);
+	    m(html, target, anchor = null) {
+	        if (!this.e) {
+	            this.e = element(target.nodeName);
+	            this.t = target;
+	            this.h(html);
 	        }
-	        this.t = target;
+	        this.i(anchor);
 	    }
-	    u(html) {
+	    h(html) {
 	        this.e.innerHTML = html;
 	        this.n = Array.from(this.e.childNodes);
 	    }
+	    i(anchor) {
+	        for (let i = 0; i < this.n.length; i += 1) {
+	            insert(this.t, this.n[i], anchor);
+	        }
+	    }
 	    p(html) {
 	        this.d();
-	        this.u(html);
-	        this.m(this.t, this.a);
+	        this.h(html);
+	        this.i(this.a);
 	    }
 	    d() {
 	        this.n.forEach(detach);
 	    }
 	}
 
-	let stylesheet;
+	const active_docs = new Set();
 	let active = 0;
-	let current_rules = {};
 	// https://github.com/darkskyapp/string-hash/blob/master/index.js
 	function hash(str) {
 	    let hash = 5381;
@@ -1779,12 +1816,11 @@ var app = (function () {
 	    }
 	    const rule = keyframes + `100% {${fn(b, 1 - b)}}\n}`;
 	    const name = `__svelte_${hash(rule)}_${uid}`;
+	    const doc = node.ownerDocument;
+	    active_docs.add(doc);
+	    const stylesheet = doc.__svelte_stylesheet || (doc.__svelte_stylesheet = doc.head.appendChild(element('style')).sheet);
+	    const current_rules = doc.__svelte_rules || (doc.__svelte_rules = {});
 	    if (!current_rules[name]) {
-	        if (!stylesheet) {
-	            const style = element('style');
-	            document.head.appendChild(style);
-	            stylesheet = style.sheet;
-	        }
 	        current_rules[name] = true;
 	        stylesheet.insertRule(`@keyframes ${name} ${rule}`, stylesheet.cssRules.length);
 	    }
@@ -1794,24 +1830,31 @@ var app = (function () {
 	    return name;
 	}
 	function delete_rule(node, name) {
-	    node.style.animation = (node.style.animation || '')
-	        .split(', ')
-	        .filter(name
+	    const previous = (node.style.animation || '').split(', ');
+	    const next = previous.filter(name
 	        ? anim => anim.indexOf(name) < 0 // remove specific animation
 	        : anim => anim.indexOf('__svelte') === -1 // remove all Svelte animations
-	    )
-	        .join(', ');
-	    if (name && !--active)
-	        clear_rules();
+	    );
+	    const deleted = previous.length - next.length;
+	    if (deleted) {
+	        node.style.animation = next.join(', ');
+	        active -= deleted;
+	        if (!active)
+	            clear_rules();
+	    }
 	}
 	function clear_rules() {
 	    raf(() => {
 	        if (active)
 	            return;
-	        let i = stylesheet.cssRules.length;
-	        while (i--)
-	            stylesheet.deleteRule(i);
-	        current_rules = {};
+	        active_docs.forEach(doc => {
+	            const stylesheet = doc.__svelte_stylesheet;
+	            let i = stylesheet.cssRules.length;
+	            while (i--)
+	                stylesheet.deleteRule(i);
+	            doc.__svelte_rules = {};
+	        });
+	        active_docs.clear();
 	    });
 	}
 
@@ -1847,6 +1890,9 @@ var app = (function () {
 	        }
 	    };
 	}
+	function getContext(key) {
+	    return get_current_component().$$.context.get(key);
+	}
 	// TODO figure out if we still want to support
 	// shorthand events, or if we want to implement
 	// a real bubbling mechanism
@@ -1879,16 +1925,21 @@ var app = (function () {
 	function add_flush_callback(fn) {
 	    flush_callbacks.push(fn);
 	}
+	let flushing = false;
+	const seen_callbacks = new Set();
 	function flush() {
-	    const seen_callbacks = new Set();
+	    if (flushing)
+	        return;
+	    flushing = true;
 	    do {
 	        // first, call beforeUpdate functions
 	        // and update components
-	        while (dirty_components.length) {
-	            const component = dirty_components.shift();
+	        for (let i = 0; i < dirty_components.length; i += 1) {
+	            const component = dirty_components[i];
 	            set_current_component(component);
 	            update(component.$$);
 	        }
+	        dirty_components.length = 0;
 	        while (binding_callbacks.length)
 	            binding_callbacks.pop()();
 	        // then, once components are updated, call
@@ -1897,9 +1948,9 @@ var app = (function () {
 	        for (let i = 0; i < render_callbacks.length; i += 1) {
 	            const callback = render_callbacks[i];
 	            if (!seen_callbacks.has(callback)) {
-	                callback();
 	                // ...so guard against infinite loops
 	                seen_callbacks.add(callback);
+	                callback();
 	            }
 	        }
 	        render_callbacks.length = 0;
@@ -1908,13 +1959,16 @@ var app = (function () {
 	        flush_callbacks.pop()();
 	    }
 	    update_scheduled = false;
+	    flushing = false;
+	    seen_callbacks.clear();
 	}
 	function update($$) {
 	    if ($$.fragment !== null) {
 	        $$.update();
 	        run_all($$.before_update);
-	        $$.fragment && $$.fragment.p($$.ctx, $$.dirty);
+	        const dirty = $$.dirty;
 	        $$.dirty = [-1];
+	        $$.fragment && $$.fragment.p($$.ctx, dirty);
 	        $$.after_update.forEach(add_render_callback);
 	    }
 	}
@@ -2194,7 +2248,11 @@ var app = (function () {
 	    };
 	}
 
-	const globals = (typeof window !== 'undefined' ? window : global);
+	const globals = (typeof window !== 'undefined'
+	    ? window
+	    : typeof globalThis !== 'undefined'
+	        ? globalThis
+	        : global);
 	function outro_and_destroy_block(block, lookup) {
 	    transition_out(block, 1, 1, () => {
 	        lookup.delete(block.key);
@@ -2274,6 +2332,16 @@ var app = (function () {
 	    while (n)
 	        insert(new_blocks[n - 1]);
 	    return new_blocks;
+	}
+	function validate_each_keys(ctx, list, get_context, get_key) {
+	    const keys = new Set();
+	    for (let i = 0; i < list.length; i++) {
+	        const key = get_key(get_context(ctx, list, i));
+	        if (keys.has(key)) {
+	            throw new Error(`Cannot have duplicate keys in a keyed each`);
+	        }
+	        keys.add(key);
+	    }
 	}
 
 	function get_spread_update(levels, updates) {
@@ -2384,7 +2452,8 @@ var app = (function () {
 	    };
 	    let ready = false;
 	    $$.ctx = instance
-	        ? instance(component, prop_values, (i, ret, value = ret) => {
+	        ? instance(component, prop_values, (i, ret, ...rest) => {
+	            const value = rest.length ? rest[0] : ret;
 	            if ($$.ctx && not_equal($$.ctx[i], $$.ctx[i] = value)) {
 	                if ($$.bound[i])
 	                    $$.bound[i](value);
@@ -2401,8 +2470,10 @@ var app = (function () {
 	    $$.fragment = create_fragment ? create_fragment($$.ctx) : false;
 	    if (options.target) {
 	        if (options.hydrate) {
+	            const nodes = children(options.target);
 	            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-	            $$.fragment && $$.fragment.l(children(options.target));
+	            $$.fragment && $$.fragment.l(nodes);
+	            nodes.forEach(detach);
 	        }
 	        else {
 	            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -2435,7 +2506,7 @@ var app = (function () {
 	}
 
 	function dispatch_dev(type, detail) {
-	    document.dispatchEvent(custom_event(type, detail));
+	    document.dispatchEvent(custom_event(type, Object.assign({ version: '3.23.2' }, detail)));
 	}
 	function append_dev(target, node) {
 	    dispatch_dev("SvelteDOMInsert", { target, node });
@@ -2480,6 +2551,22 @@ var app = (function () {
 	    dispatch_dev("SvelteDOMSetData", { node: text, data });
 	    text.data = data;
 	}
+	function validate_each_argument(arg) {
+	    if (typeof arg !== 'string' && !(arg && typeof arg === 'object' && 'length' in arg)) {
+	        let msg = '{#each} only iterates over array-like objects.';
+	        if (typeof Symbol === 'function' && arg && Symbol.iterator in arg) {
+	            msg += ' You can use a spread to convert this iterable into an array.';
+	        }
+	        throw new Error(msg);
+	    }
+	}
+	function validate_slots(name, slot, keys) {
+	    for (const slot_key of Object.keys(slot)) {
+	        if (!~keys.indexOf(slot_key)) {
+	            console.warn(`<${name}> received an unexpected slot "${slot_key}".`);
+	        }
+	    }
+	}
 	class SvelteComponentDev extends SvelteComponent {
 	    constructor(options) {
 	        if (!options || (!options.target && !options.$$inline)) {
@@ -2493,6 +2580,8 @@ var app = (function () {
 	            console.warn(`Component was already destroyed`); // eslint-disable-line no-console
 	        };
 	    }
+	    $capture_state() { }
+	    $inject_state() { }
 	}
 
 	function cubicOut(t) {
@@ -2672,10 +2761,10 @@ var app = (function () {
 			: '';
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Ripple.svelte generated by Svelte v3.16.0 */
+	/* F:\myGit\svelte-leaflet-comp\src\Ripple.svelte generated by Svelte v3.23.2 */
 
 	const { console: console_1 } = globals;
-	const file = "F:\\svelte\\svelte-leaflet1\\src\\Ripple.svelte";
+	const file = "F:\\myGit\\svelte-leaflet-comp\\src\\Ripple.svelte";
 
 	function create_fragment(ctx) {
 		let div;
@@ -2691,14 +2780,14 @@ var app = (function () {
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
-				/*div_binding*/ ctx[5](div);
+				/*div_binding*/ ctx[4](div);
 			},
 			p: noop,
 			i: noop,
 			o: noop,
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
-				/*div_binding*/ ctx[5](null);
+				/*div_binding*/ ctx[4](null);
 			}
 		};
 
@@ -2733,7 +2822,10 @@ var app = (function () {
 		const localY = target.clientY - offset.top;
 		let radius = 0;
 		let scale = 0.3;
+
+		// Get ripple position
 		const center = el.dataset.center;
+
 		const circle = el.dataset.circle;
 
 		if (circle) {
@@ -2773,7 +2865,10 @@ var app = (function () {
 		}
 
 		container.dataset.event = eventType;
+
+		// Create the ripple
 		const wave = document.createElement("span");
+
 		const { radius, scale, x, y, centerX, centerY } = calculate(event, container);
 		const color = container.dataset.color;
 		const size = `${radius * 2}px`;
@@ -2839,6 +2934,7 @@ var app = (function () {
 	};
 
 	const onMouseDown = function (e) {
+		// Trigger on left click only
 		if (e.button === 0) {
 			startRipple(e.type, e);
 		}
@@ -2875,7 +2971,7 @@ var app = (function () {
 				trigEl = el.parentElement;
 			} catch(err) {
 				
-			}
+			} // eslint-disable-line
 
 			if (!trigEl) {
 				console.error("Ripple: Trigger element not found.");
@@ -2907,9 +3003,13 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1.warn(`<Ripple> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Ripple", $$slots, []);
+
 		function div_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(0, el = $$value);
+				el = $$value;
+				$$invalidate(0, el);
 			});
 		}
 
@@ -2919,9 +3019,23 @@ var app = (function () {
 			if ("color" in $$props) $$invalidate(3, color = $$props.color);
 		};
 
-		$$self.$capture_state = () => {
-			return { center, circle, color, el, trigEl };
-		};
+		$$self.$capture_state = () => ({
+			isTouchEvent,
+			transform,
+			opacity,
+			calculate,
+			startRipple,
+			onMouseDown,
+			onTouchStart,
+			center,
+			circle,
+			color,
+			tick,
+			onMount,
+			onDestroy,
+			el,
+			trigEl
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("center" in $$props) $$invalidate(1, center = $$props.center);
@@ -2931,7 +3045,11 @@ var app = (function () {
 			if ("trigEl" in $$props) trigEl = $$props.trigEl;
 		};
 
-		return [el, center, circle, color, trigEl, div_binding];
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [el, center, circle, color, div_binding];
 	}
 
 	class Ripple extends SvelteComponentDev {
@@ -2972,14 +3090,15 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Button.svelte generated by Svelte v3.16.0 */
-	const file$1 = "F:\\svelte\\svelte-leaflet1\\src\\Button.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Button.svelte generated by Svelte v3.23.2 */
+	const file$1 = "F:\\myGit\\svelte-leaflet-comp\\src\\Button.svelte";
 
 	// (20:1) {#if ripple}
 	function create_if_block(ctx) {
+		let ripple_1;
 		let current;
 
-		const ripple_1 = new Ripple({
+		ripple_1 = new Ripple({
 				props: {
 					center: /*icon*/ ctx[3],
 					circle: /*icon*/ ctx[3]
@@ -3031,9 +3150,10 @@ var app = (function () {
 		let t;
 		let events_action;
 		let current;
+		let mounted;
 		let dispose;
-		const default_slot_template = /*$$slots*/ ctx[22].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[21], null);
+		const default_slot_template = /*$$slots*/ ctx[19].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[18], null);
 		let if_block = /*ripple*/ ctx[10] && create_if_block(ctx);
 
 		let button_levels = [
@@ -3066,7 +3186,6 @@ var app = (function () {
 				toggle_class(button, "full-width", /*fullWidth*/ ctx[12] && !/*icon*/ ctx[3]);
 				toggle_class(button, "svelte-1sidyst", true);
 				add_location(button, file$1, 0, 0, 0);
-				dispose = listen_dev(button, "click", /*onclick*/ ctx[16], false, false, false);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -3080,19 +3199,32 @@ var app = (function () {
 
 				append_dev(button, t);
 				if (if_block) if_block.m(button, null);
-				/*button_binding*/ ctx[23](button);
-				events_action = /*events*/ ctx[15].call(null, button) || ({});
+				/*button_binding*/ ctx[20](button);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(button, "click", /*onclick*/ ctx[16], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[15].call(null, button))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 2097152) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[21], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[21], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 262144) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[18], dirty, null, null);
+					}
 				}
 
 				if (/*ripple*/ ctx[10]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*ripple*/ 1024) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block(ctx);
 						if_block.c();
@@ -3109,9 +3241,9 @@ var app = (function () {
 					check_outros();
 				}
 
-				set_attributes(button, get_spread_update(button_levels, [
-					dirty & /*className*/ 2 && ({ class: /*className*/ ctx[1] }),
-					dirty & /*style*/ 4 && ({ style: /*style*/ ctx[2] }),
+				set_attributes(button, button_data = get_spread_update(button_levels, [
+					dirty & /*className*/ 2 && { class: /*className*/ ctx[1] },
+					dirty & /*style*/ 4 && { style: /*style*/ ctx[2] },
 					dirty & /*attrs*/ 16384 && /*attrs*/ ctx[14]
 				]));
 
@@ -3141,9 +3273,9 @@ var app = (function () {
 				if (detaching) detach_dev(button);
 				if (default_slot) default_slot.d(detaching);
 				if (if_block) if_block.d();
-				/*button_binding*/ ctx[23](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
-				dispose();
+				/*button_binding*/ ctx[20](null);
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -3207,15 +3339,17 @@ var app = (function () {
 		}
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Button", $$slots, ['default']);
 
 		function button_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(13, elm = $$value);
+				elm = $$value;
+				$$invalidate(13, elm);
 			});
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(20, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(23, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("class" in $$new_props) $$invalidate(1, className = $$new_props.class);
 			if ("style" in $$new_props) $$invalidate(2, style = $$new_props.style);
 			if ("icon" in $$new_props) $$invalidate(3, icon = $$new_props.icon);
@@ -3230,33 +3364,41 @@ var app = (function () {
 			if ("toggle" in $$new_props) $$invalidate(11, toggle = $$new_props.toggle);
 			if ("active" in $$new_props) $$invalidate(0, active = $$new_props.active);
 			if ("fullWidth" in $$new_props) $$invalidate(12, fullWidth = $$new_props.fullWidth);
-			if ("$$scope" in $$new_props) $$invalidate(21, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(18, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				style,
-				icon,
-				fab,
-				dense,
-				raised,
-				unelevated,
-				outlined,
-				shaped,
-				color,
-				ripple,
-				toggle,
-				active,
-				fullWidth,
-				elm,
-				attrs,
-				iconSize
-			};
-		};
+		$$self.$capture_state = () => ({
+			beforeUpdate,
+			createEventDispatcher,
+			current_component,
+			getEventsAction,
+			islegacy,
+			luminance,
+			Ripple,
+			dispatch,
+			events,
+			className,
+			style,
+			icon,
+			fab,
+			dense,
+			raised,
+			unelevated,
+			outlined,
+			shaped,
+			color,
+			ripple,
+			toggle,
+			active,
+			fullWidth,
+			elm,
+			attrs,
+			onclick,
+			iconSize
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(20, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(23, $$props = assign(assign({}, $$props), $$new_props));
 			if ("className" in $$props) $$invalidate(1, className = $$new_props.className);
 			if ("style" in $$props) $$invalidate(2, style = $$new_props.style);
 			if ("icon" in $$props) $$invalidate(3, icon = $$new_props.icon);
@@ -3278,9 +3420,15 @@ var app = (function () {
 
 		let iconSize;
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { style, icon, fab, dense, raised, unelevated, outlined, shaped, color, ripple, toggle, active, fullWidth, ...other } = $$props;
+
 				!other.disabled && delete other.disabled;
 				delete other.class;
 				$$invalidate(14, attrs = other);
@@ -3322,9 +3470,6 @@ var app = (function () {
 			events,
 			onclick,
 			color,
-			iconSize,
-			dispatch,
-			$$props,
 			$$scope,
 			$$slots,
 			button_binding
@@ -3473,8 +3618,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\ButtonGroup.svelte generated by Svelte v3.16.0 */
-	const file$2 = "F:\\svelte\\svelte-leaflet1\\src\\ButtonGroup.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\ButtonGroup.svelte generated by Svelte v3.23.2 */
+	const file$2 = "F:\\myGit\\svelte-leaflet-comp\\src\\ButtonGroup.svelte";
 
 	function create_fragment$2(ctx) {
 		let div;
@@ -3508,8 +3653,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 4) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[2], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[2], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 4) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[2], dirty, null, null);
+					}
 				}
 
 				if (!current || dirty & /*color, style*/ 3 && div_style_value !== (div_style_value = /*color*/ ctx[0]
@@ -3554,6 +3701,7 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("ButtonGroup", $$slots, ['default']);
 
 		$$self.$set = $$props => {
 			if ("color" in $$props) $$invalidate(0, color = $$props.color);
@@ -3561,14 +3709,16 @@ var app = (function () {
 			if ("$$scope" in $$props) $$invalidate(2, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return { color, style };
-		};
+		$$self.$capture_state = () => ({ islegacy, color, style });
 
 		$$self.$inject_state = $$props => {
 			if ("color" in $$props) $$invalidate(0, color = $$props.color);
 			if ("style" in $$props) $$invalidate(1, style = $$props.style);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*color*/ 1) {
@@ -3576,7 +3726,8 @@ var app = (function () {
 					$$invalidate(0, color = islegacy() ? "#1976d2" : "var(--primary, #1976d2)");
 				} else if (color == "accent") {
 					$$invalidate(0, color = islegacy() ? "#f50057" : "var(--accent, #f50057)");
-				}
+				} // } else if (!color) {
+				// 	color = islegacy() ? '#333' : 'var(--color, #333)';
 			}
 		};
 
@@ -3613,14 +3764,14 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Icon.svelte generated by Svelte v3.16.0 */
-	const file$3 = "F:\\svelte\\svelte-leaflet1\\src\\Icon.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Icon.svelte generated by Svelte v3.23.2 */
+	const file$3 = "F:\\myGit\\svelte-leaflet-comp\\src\\Icon.svelte";
 
 	// (16:1) {:else}
 	function create_else_block(ctx) {
 		let current;
-		const default_slot_template = /*$$slots*/ ctx[13].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[12], null);
+		const default_slot_template = /*$$slots*/ ctx[12].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[11], null);
 
 		const block = {
 			c: function create() {
@@ -3634,8 +3785,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 4096) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[12], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[12], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 2048) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[11], dirty, null, null);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -3716,6 +3869,8 @@ var app = (function () {
 		let if_block;
 		let events_action;
 		let current;
+		let mounted;
+		let dispose;
 		const if_block_creators = [create_if_block$1, create_else_block];
 		const if_blocks = [];
 
@@ -3752,9 +3907,13 @@ var app = (function () {
 			m: function mount(target, anchor) {
 				insert_dev(target, em, anchor);
 				if_blocks[current_block_type_index].m(em, null);
-				/*em_binding*/ ctx[14](em);
-				events_action = /*events*/ ctx[8].call(null, em) || ({});
+				/*em_binding*/ ctx[13](em);
 				current = true;
+
+				if (!mounted) {
+					dispose = action_destroyer(events_action = /*events*/ ctx[8].call(null, em));
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				let previous_block_index = current_block_type_index;
@@ -3781,8 +3940,8 @@ var app = (function () {
 					if_block.m(em, null);
 				}
 
-				set_attributes(em, get_spread_update(em_levels, [
-					dirty & /*className*/ 1 && ({ class: "icon " + /*className*/ ctx[0] }),
+				set_attributes(em, em_data = get_spread_update(em_levels, [
+					dirty & /*className*/ 1 && { class: "icon " + /*className*/ ctx[0] },
 					dirty & /*attrs*/ 128 && /*attrs*/ ctx[7]
 				]));
 
@@ -3805,8 +3964,9 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(em);
 				if_blocks[current_block_type_index].d();
-				/*em_binding*/ ctx[14](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*em_binding*/ ctx[13](null);
+				mounted = false;
+				dispose();
 			}
 		};
 
@@ -3843,15 +4003,17 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Icon", $$slots, ['default']);
 
 		function em_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(6, elm = $$value);
+				elm = $$value;
+				$$invalidate(6, elm);
 			});
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(11, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(14, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("class" in $$new_props) $$invalidate(0, className = $$new_props.class);
 			if ("path" in $$new_props) $$invalidate(1, path = $$new_props.path);
 			if ("size" in $$new_props) $$invalidate(9, size = $$new_props.size);
@@ -3860,26 +4022,28 @@ var app = (function () {
 			if ("flip" in $$new_props) $$invalidate(3, flip = $$new_props.flip);
 			if ("spin" in $$new_props) $$invalidate(4, spin = $$new_props.spin);
 			if ("pulse" in $$new_props) $$invalidate(5, pulse = $$new_props.pulse);
-			if ("$$scope" in $$new_props) $$invalidate(12, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(11, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				path,
-				size,
-				viewBox,
-				color,
-				flip,
-				spin,
-				pulse,
-				elm,
-				attrs
-			};
-		};
+		$$self.$capture_state = () => ({
+			beforeUpdate,
+			current_component,
+			getEventsAction,
+			events,
+			className,
+			path,
+			size,
+			viewBox,
+			color,
+			flip,
+			spin,
+			pulse,
+			elm,
+			attrs
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(11, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(14, $$props = assign(assign({}, $$props), $$new_props));
 			if ("className" in $$props) $$invalidate(0, className = $$new_props.className);
 			if ("path" in $$props) $$invalidate(1, path = $$new_props.path);
 			if ("size" in $$props) $$invalidate(9, size = $$new_props.size);
@@ -3892,9 +4056,15 @@ var app = (function () {
 			if ("attrs" in $$props) $$invalidate(7, attrs = $$new_props.attrs);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { path, size, viewBox, color, flip, spin, pulse, ...other } = $$props;
+
 				delete other.class;
 				$$invalidate(7, attrs = other);
 			}
@@ -3914,7 +4084,6 @@ var app = (function () {
 			events,
 			size,
 			color,
-			$$props,
 			$$scope,
 			$$slots,
 			em_binding
@@ -4009,14 +4178,15 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Checkbox.svelte generated by Svelte v3.16.0 */
-	const file$4 = "F:\\svelte\\svelte-leaflet1\\src\\Checkbox.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Checkbox.svelte generated by Svelte v3.23.2 */
+	const file$4 = "F:\\myGit\\svelte-leaflet-comp\\src\\Checkbox.svelte";
 
 	// (13:2) {#if ripple}
 	function create_if_block$2(ctx) {
+		let ripple_1;
 		let current;
 
-		const ripple_1 = new Ripple({
+		ripple_1 = new Ripple({
 				props: { center: true, circle: true },
 				$$inline: true
 			});
@@ -4060,21 +4230,23 @@ var app = (function () {
 		let events_action;
 		let t0;
 		let div0;
+		let icon;
 		let t1;
 		let div0_style_value;
 		let t2;
 		let div1;
 		let label_class_value;
 		let current;
+		let mounted;
 		let dispose;
-		let input_levels = [{ type: "checkbox" }, { value: /*value*/ ctx[9] }, /*attrs*/ ctx[10]];
+		let input_levels = [{ type: "checkbox" }, { __value: /*value*/ ctx[9] }, /*attrs*/ ctx[10]];
 		let input_data = {};
 
 		for (let i = 0; i < input_levels.length; i += 1) {
 			input_data = assign(input_data, input_levels[i]);
 		}
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: /*indeterminate*/ ctx[2]
 					? /*checkboxIndeterminate*/ ctx[14]
@@ -4086,8 +4258,8 @@ var app = (function () {
 			});
 
 		let if_block = /*ripple*/ ctx[7] && create_if_block$2(ctx);
-		const default_slot_template = /*$$slots*/ ctx[20].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[19], null);
+		const default_slot_template = /*$$slots*/ ctx[18].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[17], null);
 
 		const block = {
 			c: function create() {
@@ -4102,7 +4274,7 @@ var app = (function () {
 				div1 = element("div");
 				if (default_slot) default_slot.c();
 				set_attributes(input, input_data);
-				if (/*checked*/ ctx[0] === void 0 || /*indeterminate*/ ctx[2] === void 0) add_render_callback(() => /*input_change_handler*/ ctx[21].call(input));
+				if (/*checked*/ ctx[0] === void 0 || /*indeterminate*/ ctx[2] === void 0) add_render_callback(() => /*input_change_handler*/ ctx[19].call(input));
 				toggle_class(input, "svelte-1idh7xl", true);
 				add_location(input, file$4, 1, 1, 70);
 				attr_dev(div0, "class", "mark svelte-1idh7xl");
@@ -4120,11 +4292,6 @@ var app = (function () {
 				toggle_class(label, "right", /*right*/ ctx[6]);
 				toggle_class(label, "disabled", /*disabled*/ ctx[5]);
 				add_location(label, file$4, 0, 0, 0);
-
-				dispose = [
-					listen_dev(input, "change", /*input_change_handler*/ ctx[21]),
-					listen_dev(input, "change", /*groupUpdate*/ ctx[15], false, false, false)
-				];
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4134,7 +4301,6 @@ var app = (function () {
 				append_dev(label, input);
 				input.checked = /*checked*/ ctx[0];
 				input.indeterminate = /*indeterminate*/ ctx[2];
-				events_action = /*events*/ ctx[11].call(null, input) || ({});
 				append_dev(label, t0);
 				append_dev(label, div0);
 				mount_component(icon, div0, null);
@@ -4148,11 +4314,21 @@ var app = (function () {
 				}
 
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input, "change", /*input_change_handler*/ ctx[19]),
+						listen_dev(input, "change", /*groupUpdate*/ ctx[15], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[11].call(null, input))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
-				set_attributes(input, get_spread_update(input_levels, [
+				set_attributes(input, input_data = get_spread_update(input_levels, [
 					{ type: "checkbox" },
-					dirty & /*value*/ 512 && ({ value: /*value*/ ctx[9] }),
+					dirty & /*value*/ 512 && { __value: /*value*/ ctx[9] },
 					dirty & /*attrs*/ 1024 && /*attrs*/ ctx[10]
 				]));
 
@@ -4176,13 +4352,15 @@ var app = (function () {
 				icon.$set(icon_changes);
 
 				if (/*ripple*/ ctx[7]) {
-					if (!if_block) {
+					if (if_block) {
+						if (dirty & /*ripple*/ 128) {
+							transition_in(if_block, 1);
+						}
+					} else {
 						if_block = create_if_block$2(ctx);
 						if_block.c();
 						transition_in(if_block, 1);
 						if_block.m(div0, null);
-					} else {
-						transition_in(if_block, 1);
 					}
 				} else if (if_block) {
 					group_outros();
@@ -4200,8 +4378,10 @@ var app = (function () {
 					attr_dev(div0, "style", div0_style_value);
 				}
 
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 524288) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[19], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[19], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 131072) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[17], dirty, null, null);
+					}
 				}
 
 				if (!current || dirty & /*className*/ 8 && label_class_value !== (label_class_value = "" + (null_to_empty(/*className*/ ctx[3]) + " svelte-1idh7xl"))) {
@@ -4239,10 +4419,10 @@ var app = (function () {
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(label);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
 				destroy_component(icon);
 				if (if_block) if_block.d();
 				if (default_slot) default_slot.d(detaching);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -4263,7 +4443,7 @@ var app = (function () {
 		let { checked = false } = $$props;
 		let { class: className = "" } = $$props;
 		let { style = null } = $$props;
-		let { color = "primary" } = $$props;
+		let { color = "primary" } = $$props; // primary, accent, currentColor, inherit
 		let { disabled = false } = $$props;
 		let { group = null } = $$props;
 		let { indeterminate = false } = $$props;
@@ -4285,7 +4465,7 @@ var app = (function () {
 			);
 		}
 
-		function groupUpdate() {
+		function groupUpdate() /*e*/ {
 			if (group !== null) {
 				let i = group.indexOf(value);
 
@@ -4302,6 +4482,7 @@ var app = (function () {
 		}
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Checkbox", $$slots, ['default']);
 
 		function input_change_handler() {
 			checked = this.checked;
@@ -4311,7 +4492,7 @@ var app = (function () {
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(18, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(21, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("checked" in $$new_props) $$invalidate(0, checked = $$new_props.checked);
 			if ("class" in $$new_props) $$invalidate(3, className = $$new_props.class);
 			if ("style" in $$new_props) $$invalidate(4, style = $$new_props.style);
@@ -4323,31 +4504,37 @@ var app = (function () {
 			if ("ripple" in $$new_props) $$invalidate(7, ripple = $$new_props.ripple);
 			if ("title" in $$new_props) $$invalidate(8, title = $$new_props.title);
 			if ("value" in $$new_props) $$invalidate(9, value = $$new_props.value);
-			if ("$$scope" in $$new_props) $$invalidate(19, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(17, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				checked,
-				className,
-				style,
-				color,
-				disabled,
-				group,
-				indeterminate,
-				right,
-				ripple,
-				title,
-				value,
-				attrs,
-				checkbox,
-				checkboxOutline,
-				checkboxIndeterminate
-			};
-		};
+		$$self.$capture_state = () => ({
+			current_component,
+			getEventsAction,
+			islegacy,
+			Icon,
+			Ripple,
+			events,
+			checked,
+			className,
+			style,
+			color,
+			disabled,
+			group,
+			indeterminate,
+			right,
+			ripple,
+			title,
+			value,
+			attrs,
+			checkbox,
+			checkboxOutline,
+			checkboxIndeterminate,
+			groupCheck,
+			groupUpdate
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(18, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(21, $$props = assign(assign({}, $$props), $$new_props));
 			if ("checked" in $$props) $$invalidate(0, checked = $$new_props.checked);
 			if ("className" in $$props) $$invalidate(3, className = $$new_props.className);
 			if ("style" in $$props) $$invalidate(4, style = $$new_props.style);
@@ -4365,9 +4552,15 @@ var app = (function () {
 			if ("checkboxIndeterminate" in $$props) $$invalidate(14, checkboxIndeterminate = $$new_props.checkboxIndeterminate);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { checked, style, color, group, indeterminate, right, ripple, title, value, ...other } = $$props;
+
 				!other.disabled && delete other.disabled;
 				delete other.class;
 				$$invalidate(10, attrs = other);
@@ -4408,8 +4601,6 @@ var app = (function () {
 			checkboxIndeterminate,
 			groupUpdate,
 			group,
-			groupCheck,
-			$$props,
 			$$scope,
 			$$slots,
 			input_change_handler
@@ -4692,8 +4883,8 @@ var app = (function () {
 		return Object.prototype.toString.call(value) === '[object Date]';
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Textfield.svelte generated by Svelte v3.16.0 */
-	const file$5 = "F:\\svelte\\svelte-leaflet1\\src\\Textfield.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Textfield.svelte generated by Svelte v3.23.2 */
+	const file$5 = "F:\\myGit\\svelte-leaflet-comp\\src\\Textfield.svelte";
 
 	// (14:2) {#if required && !value.length}
 	function create_if_block_2(ctx) {
@@ -4828,6 +5019,7 @@ var app = (function () {
 		let t4;
 		let t5;
 		let div2_class_value;
+		let mounted;
 		let dispose;
 		let input_levels = [{ class: "input" }, /*attrs*/ ctx[12]];
 		let input_data = {};
@@ -4873,7 +5065,6 @@ var app = (function () {
 				toggle_class(div2, "dirty", /*dirty*/ ctx[13]);
 				toggle_class(div2, "disabled", /*disabled*/ ctx[1]);
 				add_location(div2, file$5, 0, 0, 0);
-				dispose = listen_dev(input, "input", /*input_input_handler*/ ctx[19]);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -4882,7 +5073,6 @@ var app = (function () {
 				insert_dev(target, div2, anchor);
 				append_dev(div2, input);
 				set_input_value(input, /*value*/ ctx[0]);
-				events_action = /*events*/ ctx[14].call(null, input) || ({});
 				append_dev(div2, t0);
 				append_dev(div2, div0);
 				append_dev(div2, t1);
@@ -4894,9 +5084,18 @@ var app = (function () {
 				if (if_block1) if_block1.m(div2, null);
 				append_dev(div2, t5);
 				if (if_block2) if_block2.m(div2, null);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input, "input", /*input_input_handler*/ ctx[15]),
+						action_destroyer(events_action = /*events*/ ctx[14].call(null, input))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
-				set_attributes(input, get_spread_update(input_levels, [{ class: "input" }, dirty & /*attrs*/ 4096 && /*attrs*/ ctx[12]]));
+				set_attributes(input, input_data = get_spread_update(input_levels, [{ class: "input" }, dirty & /*attrs*/ 4096 && /*attrs*/ ctx[12]]));
 
 				if (dirty & /*value*/ 1 && input.value !== /*value*/ ctx[0]) {
 					set_input_value(input, /*value*/ ctx[0]);
@@ -4906,7 +5105,7 @@ var app = (function () {
 				if (dirty & /*label*/ 64) set_data_dev(t2, /*label*/ ctx[6]);
 
 				if (/*required*/ ctx[2] && !/*value*/ ctx[0].length) {
-					if (!if_block0) {
+					if (if_block0) ; else {
 						if_block0 = create_if_block_2(ctx);
 						if_block0.c();
 						if_block0.m(div1, null);
@@ -4917,7 +5116,7 @@ var app = (function () {
 				}
 
 				if (!/*outlined*/ ctx[7] || /*filled*/ ctx[8]) {
-					if (!if_block1) {
+					if (if_block1) ; else {
 						if_block1 = create_if_block_1(ctx);
 						if_block1.c();
 						if_block1.m(div2, t5);
@@ -4970,11 +5169,11 @@ var app = (function () {
 			o: noop,
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div2);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
 				if (if_block0) if_block0.d();
 				if (if_block1) if_block1.d();
 				if (if_block2) if_block2.d();
-				dispose();
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -5022,6 +5221,8 @@ var app = (function () {
 		];
 
 		const dirtyTypes = ["date", "datetime-local", "month", "time", "week"];
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Textfield", $$slots, []);
 
 		function input_input_handler() {
 			value = this.value;
@@ -5029,7 +5230,7 @@ var app = (function () {
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(18, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(19, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("value" in $$new_props) $$invalidate(0, value = $$new_props.value);
 			if ("disabled" in $$new_props) $$invalidate(1, disabled = $$new_props.disabled);
 			if ("required" in $$new_props) $$invalidate(2, required = $$new_props.required);
@@ -5044,28 +5245,31 @@ var app = (function () {
 			if ("error" in $$new_props) $$invalidate(11, error = $$new_props.error);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				value,
-				disabled,
-				required,
-				className,
-				style,
-				title,
-				label,
-				outlined,
-				filled,
-				messagePersist,
-				message,
-				error,
-				placeholder,
-				attrs,
-				dirty
-			};
-		};
+		$$self.$capture_state = () => ({
+			current_component,
+			getEventsAction,
+			events,
+			value,
+			disabled,
+			required,
+			className,
+			style,
+			title,
+			label,
+			outlined,
+			filled,
+			messagePersist,
+			message,
+			error,
+			placeholder,
+			attrs,
+			allowedTypes,
+			dirtyTypes,
+			dirty
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(18, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(19, $$props = assign(assign({}, $$props), $$new_props));
 			if ("value" in $$props) $$invalidate(0, value = $$new_props.value);
 			if ("disabled" in $$props) $$invalidate(1, disabled = $$new_props.disabled);
 			if ("required" in $$props) $$invalidate(2, required = $$new_props.required);
@@ -5078,16 +5282,22 @@ var app = (function () {
 			if ("messagePersist" in $$props) $$invalidate(9, messagePersist = $$new_props.messagePersist);
 			if ("message" in $$props) $$invalidate(10, message = $$new_props.message);
 			if ("error" in $$props) $$invalidate(11, error = $$new_props.error);
-			if ("placeholder" in $$props) $$invalidate(15, placeholder = $$new_props.placeholder);
+			if ("placeholder" in $$props) $$invalidate(16, placeholder = $$new_props.placeholder);
 			if ("attrs" in $$props) $$invalidate(12, attrs = $$new_props.attrs);
 			if ("dirty" in $$props) $$invalidate(13, dirty = $$new_props.dirty);
 		};
 
 		let dirty;
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { value, style, title, label, outlined, filled, messagePersist, message, error, ...other } = $$props;
+
 				!other.readonly && delete other.readonly;
 				!other.disabled && delete other.disabled;
 				delete other.class;
@@ -5096,11 +5306,11 @@ var app = (function () {
 				? "text"
 				: other.type;
 
-				$$invalidate(15, placeholder = other.placeholder);
+				$$invalidate(16, placeholder = other.placeholder);
 				$$invalidate(12, attrs = other);
 			}
 
-			if ($$self.$$.dirty & /*value, placeholder, attrs*/ 36865) {
+			if ($$self.$$.dirty & /*value, placeholder, attrs*/ 69633) {
 				 $$invalidate(13, dirty = typeof value === "string" && value.length > 0 || typeof value === "number" || placeholder || dirtyTypes.indexOf(attrs.type) >= 0);
 			}
 		};
@@ -5123,10 +5333,6 @@ var app = (function () {
 			attrs,
 			dirty,
 			events,
-			placeholder,
-			allowedTypes,
-			dirtyTypes,
-			$$props,
 			input_input_handler
 		];
 	}
@@ -5307,22 +5513,23 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Popover.svelte generated by Svelte v3.16.0 */
+	/* F:\myGit\svelte-leaflet-comp\src\Popover.svelte generated by Svelte v3.23.2 */
 
 	const { window: window_1 } = globals;
-	const file$6 = "F:\\svelte\\svelte-leaflet1\\src\\Popover.svelte";
+	const file$6 = "F:\\myGit\\svelte-leaflet-comp\\src\\Popover.svelte";
 
 	// (8:0) {#if visible}
 	function create_if_block$4(ctx) {
 		let div;
 		let div_class_value;
+		let events_action;
 		let div_intro;
 		let div_outro;
-		let events_action;
 		let current;
+		let mounted;
 		let dispose;
-		const default_slot_template = /*$$slots*/ ctx[23].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[22], null);
+		const default_slot_template = /*$$slots*/ ctx[17].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[16], null);
 
 		const block = {
 			c: function create() {
@@ -5332,11 +5539,6 @@ var app = (function () {
 				attr_dev(div, "style", /*style*/ ctx[2]);
 				attr_dev(div, "tabindex", "-1");
 				add_location(div, file$6, 8, 1, 145);
-
-				dispose = [
-					listen_dev(div, "introstart", /*introstart_handler*/ ctx[25], false, false, false),
-					listen_dev(div, "introend", /*introend_handler*/ ctx[26], false, false, false)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
@@ -5345,13 +5547,24 @@ var app = (function () {
 					default_slot.m(div, null);
 				}
 
-				/*div_binding*/ ctx[24](div);
-				events_action = /*events*/ ctx[4].call(null, div) || ({});
+				/*div_binding*/ ctx[20](div);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(div, "introstart", /*introstart_handler*/ ctx[18], false, false, false),
+						listen_dev(div, "introend", /*introend_handler*/ ctx[19], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[4].call(null, div))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 4194304) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[22], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[22], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 65536) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[16], dirty, null, null);
+					}
 				}
 
 				if (!current || dirty & /*className*/ 2 && div_class_value !== (div_class_value = "" + (null_to_empty("popover " + /*className*/ ctx[1]) + " svelte-5k22n0"))) {
@@ -5383,9 +5596,9 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
 				if (default_slot) default_slot.d(detaching);
-				/*div_binding*/ ctx[24](null);
+				/*div_binding*/ ctx[20](null);
 				if (detaching && div_outro) div_outro.end();
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -5404,6 +5617,7 @@ var app = (function () {
 	function create_fragment$6(ctx) {
 		let if_block_anchor;
 		let current;
+		let mounted;
 		let dispose;
 		let if_block = /*visible*/ ctx[0] && create_if_block$4(ctx);
 
@@ -5411,13 +5625,6 @@ var app = (function () {
 			c: function create() {
 				if (if_block) if_block.c();
 				if_block_anchor = empty();
-
-				dispose = [
-					listen_dev(window_1, "scroll", /*onScroll*/ ctx[8], { passive: true }, false, false),
-					listen_dev(window_1, "resize", /*onResize*/ ctx[9], { passive: true }, false, false),
-					listen_dev(window_1, "keydown", /*onKeydown*/ ctx[10], false, false, false),
-					listen_dev(window_1, "click", /*onclickOutside*/ ctx[11], false, false, false)
-				];
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -5426,12 +5633,26 @@ var app = (function () {
 				if (if_block) if_block.m(target, anchor);
 				insert_dev(target, if_block_anchor, anchor);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(window_1, "scroll", /*onScroll*/ ctx[8], { passive: true }, false, false),
+						listen_dev(window_1, "resize", /*onResize*/ ctx[9], { passive: true }, false, false),
+						listen_dev(window_1, "keydown", /*onKeydown*/ ctx[10], false, false, false),
+						listen_dev(window_1, "click", /*onclickOutside*/ ctx[11], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (/*visible*/ ctx[0]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*visible*/ 1) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$4(ctx);
 						if_block.c();
@@ -5460,6 +5681,7 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (if_block) if_block.d(detaching);
 				if (detaching) detach_dev(if_block_anchor);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -5482,6 +5704,8 @@ var app = (function () {
 		target.style.transitionDuration = null;
 		target.style.transitionProperty = null;
 		target.style.transform = null;
+
+		// grab focus
 		target.focus();
 	}
 
@@ -5579,6 +5803,7 @@ var app = (function () {
 			$$invalidate(0, visible = false);
 		}
 
+		// window event handlers
 		function onScroll() {
 			setStyle();
 		}
@@ -5610,15 +5835,16 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Popover", $$slots, ['default']);
+		const introstart_handler = e => istart(e);
+		const introend_handler = e => iend(e);
 
 		function div_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(3, popoverEl = $$value);
+				popoverEl = $$value;
+				$$invalidate(3, popoverEl);
 			});
 		}
-
-		const introstart_handler = e => istart(e);
-		const introend_handler = e => iend(e);
 
 		$$self.$set = $$props => {
 			if ("class" in $$props) $$invalidate(1, className = $$props.class);
@@ -5628,22 +5854,40 @@ var app = (function () {
 			if ("dy" in $$props) $$invalidate(13, dy = $$props.dy);
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 			if ("duration" in $$props) $$invalidate(15, duration = $$props.duration);
-			if ("$$scope" in $$props) $$invalidate(22, $$scope = $$props.$$scope);
+			if ("$$scope" in $$props) $$invalidate(16, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				style,
-				origin,
-				dx,
-				dy,
-				visible,
-				duration,
-				popoverEl,
-				triggerEl
-			};
-		};
+		$$self.$capture_state = () => ({
+			current_component,
+			beforeUpdate,
+			createEventDispatcher,
+			getEventsAction,
+			trapTabKey,
+			events,
+			dispatch,
+			className,
+			style,
+			origin,
+			dx,
+			dy,
+			visible,
+			duration,
+			popoverEl,
+			triggerEl,
+			MARGIN,
+			popoverIn,
+			popoverOut,
+			istart,
+			iend,
+			getLeftPosition,
+			getTopPosition,
+			setStyle,
+			close,
+			onScroll,
+			onResize,
+			onKeydown,
+			onclickOutside
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("className" in $$props) $$invalidate(1, className = $$props.className);
@@ -5656,6 +5900,10 @@ var app = (function () {
 			if ("popoverEl" in $$props) $$invalidate(3, popoverEl = $$props.popoverEl);
 			if ("triggerEl" in $$props) triggerEl = $$props.triggerEl;
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			visible,
@@ -5674,17 +5922,11 @@ var app = (function () {
 			dy,
 			origin,
 			duration,
-			triggerEl,
-			dispatch,
-			getLeftPosition,
-			getTopPosition,
-			setStyle,
-			close,
 			$$scope,
 			$$slots,
-			div_binding,
 			introstart_handler,
-			introend_handler
+			introend_handler,
+			div_binding
 		];
 	}
 
@@ -5767,8 +6009,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\datepicker\Day.svelte generated by Svelte v3.16.0 */
-	const file$7 = "F:\\svelte\\svelte-leaflet1\\src\\datepicker\\Day.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\datepicker\Day.svelte generated by Svelte v3.23.2 */
+	const file$7 = "F:\\myGit\\svelte-leaflet-comp\\src\\datepicker\\Day.svelte";
 
 	function get_each_context_2(ctx, list, i) {
 		const child_ctx = ctx.slice();
@@ -5798,9 +6040,10 @@ var app = (function () {
 
 	// (3:2) <Button    icon    style="z-index: 5;"    disabled={year < 2 && month < 1}    on:click={() => {     addMonths(-1);    }}   >
 	function create_default_slot_1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"
 				},
@@ -5843,9 +6086,10 @@ var app = (function () {
 
 	// (13:2) <Button    icon    style="z-index: 5;"    on:click={() => {     addMonths(1);    }}   >
 	function create_default_slot(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
 				},
@@ -5904,7 +6148,7 @@ var app = (function () {
 				append_dev(span, t);
 			},
 			p: function update(ctx, dirty) {
-				if (dirty & /*weekdays*/ 64 && t_value !== (t_value = /*day*/ ctx[28] + "")) set_data_dev(t, t_value);
+				if (dirty[0] & /*weekdays*/ 64 && t_value !== (t_value = /*day*/ ctx[28] + "")) set_data_dev(t, t_value);
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(span);
@@ -5928,6 +6172,7 @@ var app = (function () {
 		let t_value = (/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value || "") + "";
 		let t;
 		let span_tabindex_value;
+		let mounted;
 		let dispose;
 
 		const block = {
@@ -5944,39 +6189,44 @@ var app = (function () {
 				toggle_class(span, "selected", isEqualDate(new Date(new Date().setFullYear(/*year*/ ctx[2], /*month*/ ctx[1], /*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value)), isNaN(/*value*/ ctx[0]) ? new Date(0) : /*value*/ ctx[0]));
 				toggle_class(span, "disabled", !/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].allowed);
 				add_location(span, file$7, 43, 9, 1142);
-
-				dispose = [
-					listen_dev(span, "keydown", onKeydown, false, false, false),
-					listen_dev(span, "click", /*onDay*/ ctx[10], false, false, false)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, span, anchor);
 				append_dev(span, t);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(span, "keydown", onKeydown, false, false, false),
+						listen_dev(span, "click", /*onDay*/ ctx[10], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if (dirty & /*cells*/ 128 && t_value !== (t_value = (/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value || "") + "")) set_data_dev(t, t_value);
+				if (dirty[0] & /*cells*/ 128 && t_value !== (t_value = (/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value || "") + "")) set_data_dev(t, t_value);
 
-				if (dirty & /*cells*/ 128 && span_tabindex_value !== (span_tabindex_value = !/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].allowed
+				if (dirty[0] & /*cells*/ 128 && span_tabindex_value !== (span_tabindex_value = !/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].allowed
 				? "-1"
 				: "0")) {
 					attr_dev(span, "tabindex", span_tabindex_value);
 				}
 
-				if (dirty & /*isEqualDate, Date, year, month, cells, today*/ 390) {
+				if (dirty[0] & /*year, month, cells, today*/ 390) {
 					toggle_class(span, "today", isEqualDate(new Date(new Date().setFullYear(/*year*/ ctx[2], /*month*/ ctx[1], /*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value)), /*today*/ ctx[8]));
 				}
 
-				if (dirty & /*isEqualDate, Date, year, month, cells, isNaN, value*/ 135) {
+				if (dirty[0] & /*year, month, cells, value*/ 135) {
 					toggle_class(span, "selected", isEqualDate(new Date(new Date().setFullYear(/*year*/ ctx[2], /*month*/ ctx[1], /*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].value)), isNaN(/*value*/ ctx[0]) ? new Date(0) : /*value*/ ctx[0]));
 				}
 
-				if (dirty & /*cells*/ 128) {
+				if (dirty[0] & /*cells*/ 128) {
 					toggle_class(span, "disabled", !/*cells*/ ctx[7][/*day*/ ctx[28] + /*week*/ ctx[26] * 7].allowed);
 				}
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(span);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -6043,6 +6293,7 @@ var app = (function () {
 	function create_each_block_1(ctx) {
 		let div;
 		let each_value_2 = Array(7);
+		validate_each_argument(each_value_2);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value_2.length; i += 1) {
@@ -6068,8 +6319,9 @@ var app = (function () {
 				}
 			},
 			p: function update(ctx, dirty) {
-				if (dirty & /*cells, isEqualDate, Date, year, month, today, isNaN, value, onKeydown, onDay*/ 1415) {
+				if (dirty[0] & /*cells, year, month, today, value, onDay*/ 1415) {
 					each_value_2 = Array(7);
+					validate_each_argument(each_value_2);
 					let i;
 
 					for (i = 0; i < each_value_2.length; i += 1) {
@@ -6124,8 +6376,10 @@ var app = (function () {
 		let div2_intro;
 		let div2_outro;
 		let current;
+		let mounted;
 		let dispose;
 		let each_value_3 = /*weekdays*/ ctx[6];
+		validate_each_argument(each_value_3);
 		let each_blocks_1 = [];
 
 		for (let i = 0; i < each_value_3.length; i += 1) {
@@ -6133,6 +6387,7 @@ var app = (function () {
 		}
 
 		let each_value_1 = Array(6);
+		validate_each_argument(each_value_1);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value_1.length; i += 1) {
@@ -6169,12 +6424,6 @@ var app = (function () {
 				add_location(div1, file$7, 33, 4, 863);
 				attr_dev(div2, "class", "grid-cell svelte-8rwna4");
 				add_location(div2, file$7, 24, 3, 498);
-
-				dispose = [
-					listen_dev(div0, "keydown", onKeydown, false, false, false),
-					listen_dev(div0, "click", /*onMonth*/ ctx[9], false, false, false)
-				];
-
 				this.first = div2;
 			},
 			m: function mount(target, anchor) {
@@ -6198,13 +6447,23 @@ var app = (function () {
 
 				append_dev(div2, t5);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(div0, "keydown", onKeydown, false, false, false),
+						listen_dev(div0, "click", /*onMonth*/ ctx[9], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if ((!current || dirty & /*locale, year, month*/ 14) && t0_value !== (t0_value = new Intl.DateTimeFormat(/*locale*/ ctx[3], { month: "long" }).format(new Date(/*year*/ ctx[2], /*month*/ ctx[1], 1)) + "")) set_data_dev(t0, t0_value);
-				if ((!current || dirty & /*year*/ 4) && t2_value !== (t2_value = ("000" + /*year*/ ctx[2]).slice(-4) + "")) set_data_dev(t2, t2_value);
+				if ((!current || dirty[0] & /*locale, year, month*/ 14) && t0_value !== (t0_value = new Intl.DateTimeFormat(/*locale*/ ctx[3], { month: "long" }).format(new Date(/*year*/ ctx[2], /*month*/ ctx[1], 1)) + "")) set_data_dev(t0, t0_value);
+				if ((!current || dirty[0] & /*year*/ 4) && t2_value !== (t2_value = ("000" + /*year*/ ctx[2]).slice(-4) + "")) set_data_dev(t2, t2_value);
 
-				if (dirty & /*weekdays*/ 64) {
+				if (dirty[0] & /*weekdays*/ 64) {
 					each_value_3 = /*weekdays*/ ctx[6];
+					validate_each_argument(each_value_3);
 					let i;
 
 					for (i = 0; i < each_value_3.length; i += 1) {
@@ -6226,8 +6485,9 @@ var app = (function () {
 					each_blocks_1.length = each_value_3.length;
 				}
 
-				if (dirty & /*Array, cells, isEqualDate, Date, year, month, today, isNaN, value, onKeydown, onDay*/ 1415) {
+				if (dirty[0] & /*cells, year, month, today, value, onDay*/ 1415) {
 					each_value_1 = Array(6);
+					validate_each_argument(each_value_1);
 					let i;
 
 					for (i = 0; i < each_value_1.length; i += 1) {
@@ -6280,6 +6540,7 @@ var app = (function () {
 				destroy_each(each_blocks_1, detaching);
 				destroy_each(each_blocks, detaching);
 				if (detaching && div2_outro) div2_outro.end();
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -6298,14 +6559,16 @@ var app = (function () {
 	function create_fragment$7(ctx) {
 		let div2;
 		let div0;
+		let button0;
 		let t0;
+		let button1;
 		let t1;
 		let div1;
 		let each_blocks = [];
 		let each_1_lookup = new Map();
 		let current;
 
-		const button0 = new Button({
+		button0 = new Button({
 				props: {
 					icon: true,
 					style: "z-index: 5;",
@@ -6316,9 +6579,9 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button0.$on("click", /*click_handler*/ ctx[19]);
+		button0.$on("click", /*click_handler*/ ctx[13]);
 
-		const button1 = new Button({
+		button1 = new Button({
 				props: {
 					icon: true,
 					style: "z-index: 5;",
@@ -6328,12 +6591,15 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button1.$on("click", /*click_handler_1*/ ctx[20]);
+		button1.$on("click", /*click_handler_1*/ ctx[14]);
 		let each_value = [0];
+		validate_each_argument(each_value);
 
 		const get_key = ctx => /*legacy*/ ctx[4]
 		? /*item*/ ctx[21]
 		: /*year*/ ctx[2] + /*month*/ ctx[1];
+
+		validate_each_keys(ctx, each_value, get_each_context, get_key);
 
 		for (let i = 0; i < 1; i += 1) {
 			let child_ctx = get_each_context(ctx, each_value, i);
@@ -6380,26 +6646,31 @@ var app = (function () {
 
 				current = true;
 			},
-			p: function update(ctx, [dirty]) {
+			p: function update(ctx, dirty) {
 				const button0_changes = {};
-				if (dirty & /*year, month*/ 6) button0_changes.disabled = /*year*/ ctx[2] < 2 && /*month*/ ctx[1] < 1;
+				if (dirty[0] & /*year, month*/ 6) button0_changes.disabled = /*year*/ ctx[2] < 2 && /*month*/ ctx[1] < 1;
 
-				if (dirty & /*$$scope*/ 0) {
+				if (dirty[1] & /*$$scope*/ 1) {
 					button0_changes.$$scope = { dirty, ctx };
 				}
 
 				button0.$set(button0_changes);
 				const button1_changes = {};
 
-				if (dirty & /*$$scope*/ 0) {
+				if (dirty[1] & /*$$scope*/ 1) {
 					button1_changes.$$scope = { dirty, ctx };
 				}
 
 				button1.$set(button1_changes);
-				const each_value = [0];
-				group_outros();
-				each_blocks = update_keyed_each(each_blocks, dirty, get_key, 1, ctx, each_value, each_1_lookup, div1, outro_and_destroy_block, create_each_block, null, get_each_context);
-				check_outros();
+
+				if (dirty[0] & /*cells, year, month, today, value, onDay, weekdays, onMonth, locale*/ 1999) {
+					const each_value = [0];
+					validate_each_argument(each_value);
+					group_outros();
+					validate_each_keys(ctx, each_value, get_each_context, get_key);
+					each_blocks = update_keyed_each(each_blocks, dirty, get_key, 1, ctx, each_value, each_1_lookup, div1, outro_and_destroy_block, create_each_block, null, get_each_context);
+					check_outros();
+				}
 			},
 			i: function intro(local) {
 				if (current) return;
@@ -6445,6 +6716,7 @@ var app = (function () {
 	}
 
 	function onKeydown(e) {
+		// click simulate
 		if (e.keyCode === 13 || e.keyCode === 32) {
 			e.stopPropagation();
 			e.preventDefault();
@@ -6461,10 +6733,10 @@ var app = (function () {
 	function instance$7($$self, $$props, $$invalidate) {
 		let { locale } = $$props;
 		let { isAllowed = () => true } = $$props;
-		let { value } = $$props;
-		let { month } = $$props;
-		let { year } = $$props;
-		let weekStart = 0;
+		let { value } = $$props; // Date
+		let { month } = $$props; // Number, index
+		let { year } = $$props; // Number, full year
+		let weekStart = 0; // Number
 		let legacy = false;
 		let direction = 0;
 		const dispatch = createEventDispatcher();
@@ -6531,6 +6803,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Day> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Day", $$slots, []);
+
 		const click_handler = () => {
 			addMonths(-1);
 		};
@@ -6547,20 +6822,35 @@ var app = (function () {
 			if ("year" in $$props) $$invalidate(2, year = $$props.year);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				locale,
-				isAllowed,
-				value,
-				month,
-				year,
-				weekStart,
-				legacy,
-				direction,
-				weekdays,
-				cells
-			};
-		};
+		$$self.$capture_state = () => ({
+			onMount,
+			createEventDispatcher,
+			fly,
+			fade,
+			Icon,
+			Button,
+			locale,
+			isAllowed,
+			value,
+			month,
+			year,
+			weekStart,
+			legacy,
+			direction,
+			dispatch,
+			today,
+			weekStartOne,
+			weekStartSix,
+			weekdays,
+			cells,
+			allow,
+			getDateCells,
+			onMonth,
+			onDay,
+			onKeydown,
+			isEqualDate,
+			addMonths
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("locale" in $$props) $$invalidate(3, locale = $$props.locale);
@@ -6568,26 +6858,31 @@ var app = (function () {
 			if ("value" in $$props) $$invalidate(0, value = $$props.value);
 			if ("month" in $$props) $$invalidate(1, month = $$props.month);
 			if ("year" in $$props) $$invalidate(2, year = $$props.year);
-			if ("weekStart" in $$props) $$invalidate(13, weekStart = $$props.weekStart);
+			if ("weekStart" in $$props) $$invalidate(15, weekStart = $$props.weekStart);
 			if ("legacy" in $$props) $$invalidate(4, legacy = $$props.legacy);
 			if ("direction" in $$props) $$invalidate(5, direction = $$props.direction);
 			if ("weekdays" in $$props) $$invalidate(6, weekdays = $$props.weekdays);
 			if ("cells" in $$props) $$invalidate(7, cells = $$props.cells);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
-			if ($$self.$$.dirty & /*locale, weekStart, weekdays, year, month*/ 8270) {
+			if ($$self.$$.dirty[0] & /*locale, weekStart, weekdays, year, month*/ 32846) {
 				 if (locale) {
+					// locale changed
 					if (weekStartOne.indexOf(locale.toLowerCase()) >= 0) {
-						$$invalidate(13, weekStart = 1);
+						$$invalidate(15, weekStart = 1);
 					} else if (weekStartSix.indexOf(locale.toLowerCase()) >= 0) {
-						$$invalidate(13, weekStart = 6);
+						$$invalidate(15, weekStart = 6);
 					} else if (weekStartOne.indexOf(locale.split("-")[0].toLowerCase()) >= 0) {
-						$$invalidate(13, weekStart = 1);
+						$$invalidate(15, weekStart = 1);
 					} else if (weekStartSix.indexOf(locale.split("-")[0].toLowerCase()) >= 0) {
-						$$invalidate(13, weekStart = 6);
+						$$invalidate(15, weekStart = 6);
 					} else {
-						$$invalidate(13, weekStart = 0);
+						$$invalidate(15, weekStart = 0);
 					}
 
 					$$invalidate(6, weekdays = []);
@@ -6602,7 +6897,7 @@ var app = (function () {
 				}
 			}
 
-			if ($$self.$$.dirty & /*year, month*/ 6) {
+			if ($$self.$$.dirty[0] & /*year, month*/ 6) {
 				 $$invalidate(7, cells = getDateCells(year, month).map(c => ({ value: c, allowed: allow(year, month, c) })));
 			}
 		};
@@ -6621,12 +6916,6 @@ var app = (function () {
 			onDay,
 			addMonths,
 			isAllowed,
-			weekStart,
-			dispatch,
-			weekStartOne,
-			weekStartSix,
-			allow,
-			getDateCells,
 			click_handler,
 			click_handler_1
 		];
@@ -6636,13 +6925,21 @@ var app = (function () {
 		constructor(options) {
 			super(options);
 
-			init(this, options, instance$7, create_fragment$7, safe_not_equal, {
-				locale: 3,
-				isAllowed: 12,
-				value: 0,
-				month: 1,
-				year: 2
-			});
+			init(
+				this,
+				options,
+				instance$7,
+				create_fragment$7,
+				safe_not_equal,
+				{
+					locale: 3,
+					isAllowed: 12,
+					value: 0,
+					month: 1,
+					year: 2
+				},
+				[-1, -1]
+			);
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -6652,7 +6949,7 @@ var app = (function () {
 			});
 
 			const { ctx } = this.$$;
-			const props = options.props || ({});
+			const props = options.props || {};
 
 			if (/*locale*/ ctx[3] === undefined && !("locale" in props)) {
 				console.warn("<Day> was created without expected prop 'locale'");
@@ -6712,8 +7009,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\datepicker\Month.svelte generated by Svelte v3.16.0 */
-	const file$8 = "F:\\svelte\\svelte-leaflet1\\src\\datepicker\\Month.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\datepicker\Month.svelte generated by Svelte v3.23.2 */
+	const file$8 = "F:\\myGit\\svelte-leaflet-comp\\src\\datepicker\\Month.svelte";
 
 	function get_each_context_2$1(ctx, list, i) {
 		const child_ctx = ctx.slice();
@@ -6737,9 +7034,10 @@ var app = (function () {
 
 	// (3:2) <Button    icon    style="z-index: 5;"    disabled={year < 2}    on:click={() => {     addYear(-1);    }}   >
 	function create_default_slot_1$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"
 				},
@@ -6782,9 +7080,10 @@ var app = (function () {
 
 	// (13:2) <Button    icon    style="z-index: 5;"    on:click={() => {     addYear(1);    }}   >
 	function create_default_slot$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"
 				},
@@ -6831,10 +7130,11 @@ var app = (function () {
 		let span;
 		let t_value = new Intl.DateTimeFormat(/*locale*/ ctx[1], { month: "short" }).format(new Date(new Date().setFullYear(/*year*/ ctx[0], /*row*/ ctx[17] * 3 + /*cell*/ ctx[19], 1))) + "";
 		let t;
+		let mounted;
 		let dispose;
 
 		function click_handler_2(...args) {
-			return /*click_handler_2*/ ctx[11](/*row*/ ctx[17], /*cell*/ ctx[19], ...args);
+			return /*click_handler_2*/ ctx[10](/*row*/ ctx[17], /*cell*/ ctx[19], ...args);
 		}
 
 		const block = {
@@ -6848,16 +7148,20 @@ var app = (function () {
 				add_location(span, file$8, 37, 9, 898);
 				attr_dev(div, "class", "cell svelte-2u9e0a");
 				add_location(div, file$8, 36, 8, 870);
-
-				dispose = [
-					listen_dev(span, "keydown", onKeydown$1, false, false, false),
-					listen_dev(span, "click", click_handler_2, false, false, false)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
 				append_dev(div, span);
 				append_dev(span, t);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(span, "keydown", onKeydown$1, false, false, false),
+						listen_dev(span, "click", click_handler_2, false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(new_ctx, dirty) {
 				ctx = new_ctx;
@@ -6869,6 +7173,7 @@ var app = (function () {
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -6889,6 +7194,7 @@ var app = (function () {
 		let div;
 		let t;
 		let each_value_2 = Array(3);
+		validate_each_argument(each_value_2);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value_2.length; i += 1) {
@@ -6919,6 +7225,7 @@ var app = (function () {
 			p: function update(ctx, dirty) {
 				if (dirty & /*isEqual, Date, year, isNaN, value, onKeydown, onMonth, Intl, locale*/ 71) {
 					each_value_2 = Array(3);
+					validate_each_argument(each_value_2);
 					let i;
 
 					for (i = 0; i < each_value_2.length; i += 1) {
@@ -6969,8 +7276,10 @@ var app = (function () {
 		let div2_intro;
 		let div2_outro;
 		let current;
+		let mounted;
 		let dispose;
 		let each_value_1 = Array(4);
+		validate_each_argument(each_value_1);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value_1.length; i += 1) {
@@ -6999,12 +7308,6 @@ var app = (function () {
 				add_location(div1, file$8, 32, 4, 746);
 				attr_dev(div2, "class", "grid-cell svelte-2u9e0a");
 				add_location(div2, file$8, 24, 3, 473);
-
-				dispose = [
-					listen_dev(div0, "keydown", onKeydown$1, false, false, false),
-					listen_dev(div0, "click", /*onYear*/ ctx[5], false, false, false)
-				];
-
 				this.first = div2;
 			},
 			m: function mount(target, anchor) {
@@ -7020,12 +7323,22 @@ var app = (function () {
 
 				append_dev(div2, t2);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(div0, "keydown", onKeydown$1, false, false, false),
+						listen_dev(div0, "click", /*onYear*/ ctx[5], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
 				if ((!current || dirty & /*year*/ 1) && t0_value !== (t0_value = ("000" + /*year*/ ctx[0]).slice(-4) + "")) set_data_dev(t0, t0_value);
 
 				if (dirty & /*Array, isEqual, Date, year, isNaN, value, onKeydown, onMonth, Intl, locale*/ 71) {
 					each_value_1 = Array(4);
+					validate_each_argument(each_value_1);
 					let i;
 
 					for (i = 0; i < each_value_1.length; i += 1) {
@@ -7077,6 +7390,7 @@ var app = (function () {
 				if (detaching) detach_dev(div2);
 				destroy_each(each_blocks, detaching);
 				if (detaching && div2_outro) div2_outro.end();
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -7095,14 +7409,16 @@ var app = (function () {
 	function create_fragment$8(ctx) {
 		let div2;
 		let div0;
+		let button0;
 		let t0;
+		let button1;
 		let t1;
 		let div1;
 		let each_blocks = [];
 		let each_1_lookup = new Map();
 		let current;
 
-		const button0 = new Button({
+		button0 = new Button({
 				props: {
 					icon: true,
 					style: "z-index: 5;",
@@ -7113,9 +7429,9 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button0.$on("click", /*click_handler*/ ctx[9]);
+		button0.$on("click", /*click_handler*/ ctx[8]);
 
-		const button1 = new Button({
+		button1 = new Button({
 				props: {
 					icon: true,
 					style: "z-index: 5;",
@@ -7125,9 +7441,11 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button1.$on("click", /*click_handler_1*/ ctx[10]);
+		button1.$on("click", /*click_handler_1*/ ctx[9]);
 		let each_value = [0];
+		validate_each_argument(each_value);
 		const get_key = ctx => /*legacy*/ ctx[3] ? /*item*/ ctx[12] : /*year*/ ctx[0];
+		validate_each_keys(ctx, each_value, get_each_context$1, get_key);
 
 		for (let i = 0; i < 1; i += 1) {
 			let child_ctx = get_each_context$1(ctx, each_value, i);
@@ -7190,10 +7508,15 @@ var app = (function () {
 				}
 
 				button1.$set(button1_changes);
-				const each_value = [0];
-				group_outros();
-				each_blocks = update_keyed_each(each_blocks, dirty, get_key, 1, ctx, each_value, each_1_lookup, div1, outro_and_destroy_block, create_each_block$1, null, get_each_context$1);
-				check_outros();
+
+				if (dirty & /*Array, isEqual, Date, year, isNaN, value, onKeydown, onMonth, Intl, locale, onYear*/ 103) {
+					const each_value = [0];
+					validate_each_argument(each_value);
+					group_outros();
+					validate_each_keys(ctx, each_value, get_each_context$1, get_key);
+					each_blocks = update_keyed_each(each_blocks, dirty, get_key, 1, ctx, each_value, each_1_lookup, div1, outro_and_destroy_block, create_each_block$1, null, get_each_context$1);
+					check_outros();
+				}
 			},
 			i: function intro(local) {
 				if (current) return;
@@ -7239,6 +7562,7 @@ var app = (function () {
 	}
 
 	function onKeydown$1(e) {
+		// click simulate
 		if (e.keyCode === 13 || e.keyCode === 32) {
 			e.stopPropagation();
 			e.preventDefault();
@@ -7255,7 +7579,7 @@ var app = (function () {
 	function instance$8($$self, $$props, $$invalidate) {
 		let { locale } = $$props;
 		let { year } = $$props;
-		let { value } = $$props;
+		let { value } = $$props; // Date
 		let legacy = false;
 		let direction = 0;
 		const dispatch = createEventDispatcher();
@@ -7287,6 +7611,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Month> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Month", $$slots, []);
+
 		const click_handler = () => {
 			addYear(-1);
 		};
@@ -7305,9 +7632,25 @@ var app = (function () {
 			if ("value" in $$props) $$invalidate(2, value = $$props.value);
 		};
 
-		$$self.$capture_state = () => {
-			return { locale, year, value, legacy, direction };
-		};
+		$$self.$capture_state = () => ({
+			onMount,
+			createEventDispatcher,
+			fly,
+			fade,
+			Icon,
+			Button,
+			locale,
+			year,
+			value,
+			legacy,
+			direction,
+			dispatch,
+			onYear,
+			onMonth,
+			onKeydown: onKeydown$1,
+			isEqual,
+			addYear
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("locale" in $$props) $$invalidate(1, locale = $$props.locale);
@@ -7316,6 +7659,10 @@ var app = (function () {
 			if ("legacy" in $$props) $$invalidate(3, legacy = $$props.legacy);
 			if ("direction" in $$props) $$invalidate(4, direction = $$props.direction);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			year,
@@ -7326,7 +7673,6 @@ var app = (function () {
 			onYear,
 			onMonth,
 			addYear,
-			dispatch,
 			click_handler,
 			click_handler_1,
 			click_handler_2
@@ -7346,7 +7692,7 @@ var app = (function () {
 			});
 
 			const { ctx } = this.$$;
-			const props = options.props || ({});
+			const props = options.props || {};
 
 			if (/*locale*/ ctx[1] === undefined && !("locale" in props)) {
 				console.warn("<Month> was created without expected prop 'locale'");
@@ -7386,8 +7732,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\datepicker\Year.svelte generated by Svelte v3.16.0 */
-	const file$9 = "F:\\svelte\\svelte-leaflet1\\src\\datepicker\\Year.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\datepicker\Year.svelte generated by Svelte v3.23.2 */
+	const file$9 = "F:\\myGit\\svelte-leaflet-comp\\src\\datepicker\\Year.svelte";
 
 	function get_each_context$2(ctx, list, i) {
 		const child_ctx = ctx.slice();
@@ -7526,8 +7872,10 @@ var app = (function () {
 		let li;
 		let t1;
 		let t2;
+		let mounted;
 		let dispose;
 		let each_value_1 = Array(100);
+		validate_each_argument(each_value_1);
 		let each_blocks_1 = [];
 
 		for (let i = 0; i < each_value_1.length; i += 1) {
@@ -7535,6 +7883,7 @@ var app = (function () {
 		}
 
 		let each_value = Array(100);
+		validate_each_argument(each_value);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value.length; i += 1) {
@@ -7562,7 +7911,6 @@ var app = (function () {
 				add_location(li, file$9, 6, 1, 164);
 				attr_dev(ul, "class", "svelte-vtkzqu");
 				add_location(ul, file$9, 0, 0, 0);
-				dispose = listen_dev(ul, "click", stop_propagation(/*onClick*/ ctx[2]), false, false, true);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -7583,11 +7931,17 @@ var app = (function () {
 					each_blocks[i].m(ul, null);
 				}
 
-				/*ul_binding*/ ctx[4](ul);
+				/*ul_binding*/ ctx[3](ul);
+
+				if (!mounted) {
+					dispose = listen_dev(ul, "click", stop_propagation(/*onClick*/ ctx[2]), false, false, true);
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (dirty & /*year*/ 1) {
 					each_value_1 = Array(100);
+					validate_each_argument(each_value_1);
 					let i;
 
 					for (i = 0; i < each_value_1.length; i += 1) {
@@ -7613,6 +7967,7 @@ var app = (function () {
 
 				if (dirty & /*year*/ 1) {
 					each_value = Array(100);
+					validate_each_argument(each_value);
 					let i;
 
 					for (i = 0; i < each_value.length; i += 1) {
@@ -7640,7 +7995,8 @@ var app = (function () {
 				if (detaching) detach_dev(ul);
 				destroy_each(each_blocks_1, detaching);
 				destroy_each(each_blocks, detaching);
-				/*ul_binding*/ ctx[4](null);
+				/*ul_binding*/ ctx[3](null);
+				mounted = false;
 				dispose();
 			}
 		};
@@ -7679,9 +8035,13 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Year> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Year", $$slots, []);
+
 		function ul_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(1, viewElm = $$value);
+				viewElm = $$value;
+				$$invalidate(1, viewElm);
 			});
 		}
 
@@ -7689,16 +8049,25 @@ var app = (function () {
 			if ("year" in $$props) $$invalidate(0, year = $$props.year);
 		};
 
-		$$self.$capture_state = () => {
-			return { year, viewElm };
-		};
+		$$self.$capture_state = () => ({
+			onMount,
+			createEventDispatcher,
+			year,
+			viewElm,
+			dispatch,
+			onClick
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("year" in $$props) $$invalidate(0, year = $$props.year);
 			if ("viewElm" in $$props) $$invalidate(1, viewElm = $$props.viewElm);
 		};
 
-		return [year, viewElm, onClick, dispatch, ul_binding];
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [year, viewElm, onClick, ul_binding];
 	}
 
 	class Year extends SvelteComponentDev {
@@ -7714,7 +8083,7 @@ var app = (function () {
 			});
 
 			const { ctx } = this.$$;
-			const props = options.props || ({});
+			const props = options.props || {};
 
 			if (/*year*/ ctx[0] === undefined && !("year" in props)) {
 				console.warn("<Year> was created without expected prop 'year'");
@@ -7730,8 +8099,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Datepicker.svelte generated by Svelte v3.16.0 */
-	const file$a = "F:\\svelte\\svelte-leaflet1\\src\\Datepicker.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Datepicker.svelte generated by Svelte v3.23.2 */
+	const file$a = "F:\\myGit\\svelte-leaflet-comp\\src\\Datepicker.svelte";
 
 	// (2:1) {#if header}
 	function create_if_block_2$1(ctx) {
@@ -7901,16 +8270,17 @@ var app = (function () {
 
 	// (26:2) {:else}
 	function create_else_block$1(ctx) {
+		let day;
 		let updating_month;
 		let updating_year;
 		let current;
 
-		function day_month_binding(value_1) {
-			/*day_month_binding*/ ctx[16].call(null, value_1);
+		function day_month_binding(value) {
+			/*day_month_binding*/ ctx[14].call(null, value);
 		}
 
-		function day_year_binding(value_2) {
-			/*day_year_binding*/ ctx[17].call(null, value_2);
+		function day_year_binding(value) {
+			/*day_year_binding*/ ctx[15].call(null, value);
 		}
 
 		let day_props = {
@@ -7927,7 +8297,7 @@ var app = (function () {
 			day_props.year = /*year*/ ctx[6];
 		}
 
-		const day = new Day({ props: day_props, $$inline: true });
+		day = new Day({ props: day_props, $$inline: true });
 		binding_callbacks.push(() => bind(day, "month", day_month_binding));
 		binding_callbacks.push(() => bind(day, "year", day_year_binding));
 		day.$on("select", /*onDay*/ ctx[12]);
@@ -7988,11 +8358,12 @@ var app = (function () {
 
 	// (24:29) 
 	function create_if_block_1$1(ctx) {
+		let month_1;
 		let updating_year;
 		let current;
 
-		function month_1_year_binding(value_1) {
-			/*month_1_year_binding*/ ctx[15].call(null, value_1);
+		function month_1_year_binding(value) {
+			/*month_1_year_binding*/ ctx[13].call(null, value);
 		}
 
 		let month_1_props = {
@@ -8004,7 +8375,7 @@ var app = (function () {
 			month_1_props.year = /*year*/ ctx[6];
 		}
 
-		const month_1 = new Month({ props: month_1_props, $$inline: true });
+		month_1 = new Month({ props: month_1_props, $$inline: true });
 		binding_callbacks.push(() => bind(month_1, "year", month_1_year_binding));
 		month_1.$on("select", /*onMonth*/ ctx[11]);
 		month_1.$on("changeView", /*onView*/ ctx[9]);
@@ -8057,9 +8428,10 @@ var app = (function () {
 
 	// (22:2) {#if type === 'year'}
 	function create_if_block$7(ctx) {
+		let year_1;
 		let current;
 
-		const year_1 = new Year({
+		year_1 = new Year({
 				props: { year: /*year*/ ctx[6] },
 				$$inline: true
 			});
@@ -8112,6 +8484,8 @@ var app = (function () {
 		let if_block1;
 		let events_action;
 		let current;
+		let mounted;
+		let dispose;
 		let if_block0 = /*header*/ ctx[3] && create_if_block_2$1(ctx);
 		const if_block_creators = [create_if_block$7, create_if_block_1$1, create_else_block$1];
 		const if_blocks = [];
@@ -8146,9 +8520,13 @@ var app = (function () {
 				append_dev(div1, t);
 				append_dev(div1, div0);
 				if_blocks[current_block_type_index].m(div0, null);
-				/*div0_binding*/ ctx[18](div0);
-				events_action = /*events*/ ctx[8].call(null, div1) || ({});
+				/*div0_binding*/ ctx[16](div0);
 				current = true;
+
+				if (!mounted) {
+					dispose = action_destroyer(events_action = /*events*/ ctx[8].call(null, div1));
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (/*header*/ ctx[3]) {
@@ -8201,8 +8579,9 @@ var app = (function () {
 				if (detaching) detach_dev(div1);
 				if (if_block0) if_block0.d();
 				if_blocks[current_block_type_index].d();
-				/*div0_binding*/ ctx[18](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*div0_binding*/ ctx[16](null);
+				mounted = false;
+				dispose();
 			}
 		};
 
@@ -8230,12 +8609,12 @@ var app = (function () {
 		let contElm;
 
 		if (!isDate(value)) {
-			$$invalidate(1, value = new Date(NaN));
+			value = new Date(NaN);
 		}
 
 		let d = isNaN(value) ? new Date() : new Date(value.getTime());
-		$$invalidate(5, month = d.getMonth());
-		$$invalidate(6, year = d.getFullYear());
+		month = d.getMonth();
+		year = d.getFullYear();
 
 		onMount(() => {
 			if (!locale) {
@@ -8276,24 +8655,28 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Datepicker> was created with unknown prop '${key}'`);
 		});
 
-		function month_1_year_binding(value_1) {
-			year = value_1;
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Datepicker", $$slots, []);
+
+		function month_1_year_binding(value) {
+			year = value;
 			$$invalidate(6, year);
 		}
 
-		function day_month_binding(value_1) {
-			month = value_1;
+		function day_month_binding(value) {
+			month = value;
 			$$invalidate(5, month);
 		}
 
-		function day_year_binding(value_2) {
-			year = value_2;
+		function day_year_binding(value) {
+			year = value;
 			$$invalidate(6, year);
 		}
 
 		function div0_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(7, contElm = $$value);
+				contElm = $$value;
+				$$invalidate(7, contElm);
 			});
 		}
 
@@ -8304,19 +8687,31 @@ var app = (function () {
 			if ("header" in $$props) $$invalidate(3, header = $$props.header);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				locale,
-				isAllowed,
-				value,
-				header,
-				type,
-				month,
-				year,
-				contElm,
-				d
-			};
-		};
+		$$self.$capture_state = () => ({
+			onMount,
+			createEventDispatcher,
+			current_component,
+			getEventsAction,
+			isDate,
+			Day,
+			Month,
+			Year,
+			locale,
+			isAllowed,
+			value,
+			header,
+			events,
+			dispatch,
+			type,
+			month,
+			year,
+			contElm,
+			d,
+			onView,
+			onYear,
+			onMonth,
+			onDay
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("locale" in $$props) $$invalidate(0, locale = $$props.locale);
@@ -8329,6 +8724,10 @@ var app = (function () {
 			if ("contElm" in $$props) $$invalidate(7, contElm = $$props.contElm);
 			if ("d" in $$props) d = $$props.d;
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			locale,
@@ -8344,8 +8743,6 @@ var app = (function () {
 			onYear,
 			onMonth,
 			onDay,
-			dispatch,
-			d,
 			month_1_year_binding,
 			day_month_binding,
 			day_year_binding,
@@ -8405,14 +8802,15 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Datefield.svelte generated by Svelte v3.16.0 */
-	const file$b = "F:\\svelte\\svelte-leaflet1\\src\\Datefield.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Datefield.svelte generated by Svelte v3.23.2 */
+	const file$b = "F:\\myGit\\svelte-leaflet-comp\\src\\Datefield.svelte";
 
 	// (8:1) {#if icon}
 	function create_if_block_1$2(ctx) {
+		let icon_1;
 		let current;
 
-		const icon_1 = new Icon({
+		icon_1 = new Icon({
 				props: {
 					viewBox: "0 0 24 18",
 					path: "M2,4 L16,4 L16,5 L2,5 L2,4 Z M4,9 L9,9 L9,14 L4,14 L4,9 Z M16,18 L2,18 L2,7 L16,7\n\t\t\tL16,18 Z M16,2 L15,2 L15,0 L13,0 L13,2 L5,2 L5,0 L3,0 L3,2 L2,2 C0.89,2 0,2.9 0,4 L0,18\n\t\t\tC0,19.1045695 0.8954305,20 2,20 L16,20 C17.1045695,20 18,19.1045695 18,18 L18,4\n\t\t\tC18,2.8954305 17.1045695,2 16,2 Z"
@@ -8458,9 +8856,10 @@ var app = (function () {
 
 	// (30:1) {#if !icon}
 	function create_if_block$8(ctx) {
+		let icon_1;
 		let current;
 
-		const icon_1 = new Icon({
+		icon_1 = new Icon({
 				props: {
 					size: "21",
 					style: "margin: 0 0 0 -20px;",
@@ -8508,9 +8907,10 @@ var app = (function () {
 
 	// (40:1) <Popover dx={icon ? 36 : 0} dy="24" bind:visible on:close={focusInputElm}>
 	function create_default_slot$2(ctx) {
+		let datepicker;
 		let current;
 
-		const datepicker = new Datepicker({
+		datepicker = new Datepicker({
 				props: {
 					locale: /*locale*/ ctx[1],
 					isAllowed: /*isAllowed*/ ctx[3],
@@ -8531,9 +8931,9 @@ var app = (function () {
 			},
 			p: function update(ctx, dirty) {
 				const datepicker_changes = {};
-				if (dirty & /*locale*/ 2) datepicker_changes.locale = /*locale*/ ctx[1];
-				if (dirty & /*isAllowed*/ 8) datepicker_changes.isAllowed = /*isAllowed*/ ctx[3];
-				if (dirty & /*pickerVal*/ 128) datepicker_changes.value = /*pickerVal*/ ctx[7];
+				if (dirty[0] & /*locale*/ 2) datepicker_changes.locale = /*locale*/ ctx[1];
+				if (dirty[0] & /*isAllowed*/ 8) datepicker_changes.isAllowed = /*isAllowed*/ ctx[3];
+				if (dirty[0] & /*pickerVal*/ 128) datepicker_changes.value = /*pickerVal*/ ctx[7];
 				datepicker.$set(datepicker_changes);
 			},
 			i: function intro(local) {
@@ -8564,13 +8964,17 @@ var app = (function () {
 	function create_fragment$b(ctx) {
 		let div;
 		let t0;
+		let textfield;
 		let updating_value;
 		let t1;
 		let t2;
+		let popover;
 		let updating_visible;
 		let div_disabled_value;
 		let events_action;
 		let current;
+		let mounted;
+		let dispose;
 		let if_block0 = /*icon*/ ctx[0] && create_if_block_1$2(ctx);
 
 		const textfield_spread_levels = [
@@ -8587,8 +8991,8 @@ var app = (function () {
 			}
 		];
 
-		function textfield_value_binding(value_1) {
-			/*textfield_value_binding*/ ctx[27].call(null, value_1);
+		function textfield_value_binding(value) {
+			/*textfield_value_binding*/ ctx[21].call(null, value);
 		}
 
 		let textfield_props = {};
@@ -8601,15 +9005,15 @@ var app = (function () {
 			textfield_props.value = /*text*/ ctx[8];
 		}
 
-		const textfield = new Textfield({ props: textfield_props, $$inline: true });
+		textfield = new Textfield({ props: textfield_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield, "value", textfield_value_binding));
 		textfield.$on("keydown", /*onkeydown*/ ctx[16]);
 		textfield.$on("focus", /*onfocus*/ ctx[14]);
 		textfield.$on("blur", /*onblur*/ ctx[15]);
 		let if_block1 = !/*icon*/ ctx[0] && create_if_block$8(ctx);
 
-		function popover_visible_binding(value_2) {
-			/*popover_visible_binding*/ ctx[28].call(null, value_2);
+		function popover_visible_binding(value) {
+			/*popover_visible_binding*/ ctx[22].call(null, value);
 		}
 
 		let popover_props = {
@@ -8623,7 +9027,7 @@ var app = (function () {
 			popover_props.visible = /*visible*/ ctx[6];
 		}
 
-		const popover = new Popover({ props: popover_props, $$inline: true });
+		popover = new Popover({ props: popover_props, $$inline: true });
 		binding_callbacks.push(() => bind(popover, "visible", popover_visible_binding));
 		popover.$on("close", /*focusInputElm*/ ctx[17]);
 
@@ -8654,15 +9058,22 @@ var app = (function () {
 				if (if_block1) if_block1.m(div, null);
 				append_dev(div, t2);
 				mount_component(popover, div, null);
-				/*div_binding*/ ctx[29](div);
-				events_action = /*events*/ ctx[11].call(null, div) || ({});
+				/*div_binding*/ ctx[23](div);
 				current = true;
+
+				if (!mounted) {
+					dispose = action_destroyer(events_action = /*events*/ ctx[11].call(null, div));
+					mounted = true;
+				}
 			},
-			p: function update(ctx, [dirty]) {
+			p: function update(ctx, dirty) {
 				if (/*icon*/ ctx[0]) {
 					if (if_block0) {
 						if_block0.p(ctx, dirty);
-						transition_in(if_block0, 1);
+
+						if (dirty[0] & /*icon*/ 1) {
+							transition_in(if_block0, 1);
+						}
 					} else {
 						if_block0 = create_if_block_1$2(ctx);
 						if_block0.c();
@@ -8679,23 +9090,23 @@ var app = (function () {
 					check_outros();
 				}
 
-				const textfield_changes = dirty & /*visible, attrs, error, icon*/ 593
+				const textfield_changes = (dirty[0] & /*visible, attrs, error, icon*/ 593)
 				? get_spread_update(textfield_spread_levels, [
-						dirty & /*visible, attrs*/ 80 && ({
+						dirty[0] & /*visible, attrs*/ 80 && {
 							placeholder: /*visible*/ ctx[6]
 							? /*attrs*/ ctx[4].message || "date"
 							: ""
-						}),
-						dirty & /*attrs*/ 16 && get_spread_object(/*attrs*/ ctx[4]),
-						dirty & /*attrs*/ 16 && ({ message: /*attrs*/ ctx[4].message }),
-						dirty & /*error*/ 512 && ({ error: /*error*/ ctx[9] }),
-						dirty & /*icon*/ 1 && ({
+						},
+						dirty[0] & /*attrs*/ 16 && get_spread_object(/*attrs*/ ctx[4]),
+						dirty[0] & /*attrs*/ 16 && { message: /*attrs*/ ctx[4].message },
+						dirty[0] & /*error*/ 512 && { error: /*error*/ ctx[9] },
+						dirty[0] & /*icon*/ 1 && {
 							style: `padding-right: ${/*icon*/ ctx[0] ? 0 : 21}px;`
-						})
+						}
 					])
 				: {};
 
-				if (!updating_value && dirty & /*text*/ 256) {
+				if (!updating_value && dirty[0] & /*text*/ 256) {
 					updating_value = true;
 					textfield_changes.value = /*text*/ ctx[8];
 					add_flush_callback(() => updating_value = false);
@@ -8706,7 +9117,10 @@ var app = (function () {
 				if (!/*icon*/ ctx[0]) {
 					if (if_block1) {
 						if_block1.p(ctx, dirty);
-						transition_in(if_block1, 1);
+
+						if (dirty[0] & /*icon*/ 1) {
+							transition_in(if_block1, 1);
+						}
 					} else {
 						if_block1 = create_if_block$8(ctx);
 						if_block1.c();
@@ -8724,13 +9138,13 @@ var app = (function () {
 				}
 
 				const popover_changes = {};
-				if (dirty & /*icon*/ 1) popover_changes.dx = /*icon*/ ctx[0] ? 36 : 0;
+				if (dirty[0] & /*icon*/ 1) popover_changes.dx = /*icon*/ ctx[0] ? 36 : 0;
 
-				if (dirty & /*$$scope, locale, isAllowed, pickerVal*/ 1073741962) {
+				if (dirty[0] & /*locale, isAllowed, pickerVal*/ 138 | dirty[1] & /*$$scope*/ 2) {
 					popover_changes.$$scope = { dirty, ctx };
 				}
 
-				if (!updating_visible && dirty & /*visible*/ 64) {
+				if (!updating_visible && dirty[0] & /*visible*/ 64) {
 					updating_visible = true;
 					popover_changes.visible = /*visible*/ ctx[6];
 					add_flush_callback(() => updating_visible = false);
@@ -8738,11 +9152,11 @@ var app = (function () {
 
 				popover.$set(popover_changes);
 
-				if (!current || dirty & /*disabled*/ 4 && div_disabled_value !== (div_disabled_value = /*disabled*/ ctx[2] || null)) {
+				if (!current || dirty[0] & /*disabled*/ 4 && div_disabled_value !== (div_disabled_value = /*disabled*/ ctx[2] || null)) {
 					attr_dev(div, "disabled", div_disabled_value);
 				}
 
-				if (dirty & /*visible, inputActive*/ 1088) {
+				if (dirty[0] & /*visible, inputActive*/ 1088) {
 					toggle_class(div, "focus-visible", /*visible*/ ctx[6] || /*inputActive*/ ctx[10]);
 				}
 			},
@@ -8767,8 +9181,9 @@ var app = (function () {
 				destroy_component(textfield);
 				if (if_block1) if_block1.d();
 				destroy_component(popover);
-				/*div_binding*/ ctx[29](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*div_binding*/ ctx[23](null);
+				mounted = false;
+				dispose();
 			}
 		};
 
@@ -8785,25 +9200,9 @@ var app = (function () {
 
 	const FORMAT_DEFAULT = "YYYY-MM-DD";
 
-	function clone(val) {
-		if (isDate(val)) {
-			return isNaN(val) ? new Date(NaN) : new Date(val.getTime());
-		}
-
-		return val;
-	}
-
-	function isEqual$1(v1, v2) {
-		if (isDate(v1) && isDate(v2)) {
-			return isSameDay(v1, v2);
-		}
-
-		return v1 === v2;
-	}
-
 	function instance$b($$self, $$props, $$invalidate) {
 		let { icon = false } = $$props;
-		let { value = "" } = $$props;
+		let { value = "" } = $$props; // [Date, String]
 		let { locale } = $$props;
 		let { readonly } = $$props;
 		let { disabled = null } = $$props;
@@ -8814,7 +9213,7 @@ var app = (function () {
 		let attrs = {};
 		let elm;
 		let visible = false;
-		let pickerVal;
+		let pickerVal; // Date type, can be isNaN(pickerVal)
 		let text = isDate(value) ? format(value, format$1) : value;
 		let error = "";
 		let originalValue = clone(value);
@@ -8881,7 +9280,7 @@ var app = (function () {
 		}
 
 		function onkeydown(e) {
-			if (e.keyCode === 32) {
+			if (/*e.keyCode === 13 || */ e.keyCode === 32) {
 				e.stopPropagation();
 				e.preventDefault();
 				open();
@@ -8901,30 +9300,50 @@ var app = (function () {
 				$$invalidate(18, value = isDate(val) ? clone(val) : parse(val, format$1));
 			}
 
-			if (!isEqual$1(value, originalValue)) {
+			if (!isEqual(value, originalValue)) {
 				originalValue = clone(value);
 				dispatch("date-change", value);
 			}
 		}
 
-		function textfield_value_binding(value_1) {
-			text = value_1;
+		function clone(val) {
+			if (isDate(val)) {
+				return isNaN(val) ? new Date(NaN) : new Date(val.getTime());
+			}
+
+			return val;
+		}
+
+		function isEqual(v1, v2) {
+			if (isDate(v1) && isDate(v2)) {
+				return isSameDay(v1, v2);
+			}
+
+			return v1 === v2;
+		}
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Datefield", $$slots, []);
+
+		function textfield_value_binding(value) {
+			text = value;
 			$$invalidate(8, text);
 		}
 
-		function popover_visible_binding(value_2) {
-			visible = value_2;
+		function popover_visible_binding(value) {
+			visible = value;
 			$$invalidate(6, visible);
 		}
 
 		function div_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(5, elm = $$value);
+				elm = $$value;
+				$$invalidate(5, elm);
 			});
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(26, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(31, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("icon" in $$new_props) $$invalidate(0, icon = $$new_props.icon);
 			if ("value" in $$new_props) $$invalidate(18, value = $$new_props.value);
 			if ("locale" in $$new_props) $$invalidate(1, locale = $$new_props.locale);
@@ -8934,28 +9353,51 @@ var app = (function () {
 			if ("isAllowed" in $$new_props) $$invalidate(3, isAllowed = $$new_props.isAllowed);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				icon,
-				value,
-				locale,
-				readonly,
-				disabled,
-				format: format$1,
-				isAllowed,
-				attrs,
-				elm,
-				visible,
-				pickerVal,
-				text,
-				error,
-				originalValue,
-				inputActive
-			};
-		};
+		$$self.$capture_state = () => ({
+			createEventDispatcher,
+			current_component,
+			getEventsAction,
+			isDate,
+			parse,
+			tostring: format,
+			isSameDay,
+			Icon,
+			Textfield,
+			Popover,
+			Datepicker,
+			FORMAT_DEFAULT,
+			icon,
+			value,
+			locale,
+			readonly,
+			disabled,
+			format: format$1,
+			isAllowed,
+			events,
+			dispatch,
+			attrs,
+			elm,
+			visible,
+			pickerVal,
+			text,
+			error,
+			originalValue,
+			inputActive,
+			validate,
+			reformat,
+			open,
+			onselect,
+			onfocus,
+			onblur,
+			onkeydown,
+			focusInputElm,
+			setval,
+			clone,
+			isEqual
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(26, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(31, $$props = assign(assign({}, $$props), $$new_props));
 			if ("icon" in $$props) $$invalidate(0, icon = $$new_props.icon);
 			if ("value" in $$props) $$invalidate(18, value = $$new_props.value);
 			if ("locale" in $$props) $$invalidate(1, locale = $$new_props.locale);
@@ -8973,21 +9415,28 @@ var app = (function () {
 			if ("inputActive" in $$props) $$invalidate(10, inputActive = $$new_props.inputActive);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { icon, value, type, locale, format, isAllowed, ...other } = $$props;
+
 				$$invalidate(4, attrs = other);
 			}
 
-			if ($$self.$$.dirty & /*format*/ 524288) {
+			if ($$self.$$.dirty[0] & /*format*/ 524288) {
+				// the format must exist
 				 $$invalidate(19, format$1 = format$1 || FORMAT_DEFAULT);
 			}
 
-			if ($$self.$$.dirty & /*text*/ 256) {
+			if ($$self.$$.dirty[0] & /*text*/ 256) {
 				 validate();
 			}
 
-			if ($$self.$$.dirty & /*format*/ 524288) {
+			if ($$self.$$.dirty[0] & /*format*/ 524288) {
 				 reformat();
 			}
 		};
@@ -9016,12 +9465,6 @@ var app = (function () {
 			value,
 			format$1,
 			readonly,
-			originalValue,
-			dispatch,
-			validate,
-			reformat,
-			setval,
-			$$props,
 			textfield_value_binding,
 			popover_visible_binding,
 			div_binding
@@ -9032,15 +9475,23 @@ var app = (function () {
 		constructor(options) {
 			super(options);
 
-			init(this, options, instance$b, create_fragment$b, safe_not_equal, {
-				icon: 0,
-				value: 18,
-				locale: 1,
-				readonly: 20,
-				disabled: 2,
-				format: 19,
-				isAllowed: 3
-			});
+			init(
+				this,
+				options,
+				instance$b,
+				create_fragment$b,
+				safe_not_equal,
+				{
+					icon: 0,
+					value: 18,
+					locale: 1,
+					readonly: 20,
+					disabled: 2,
+					format: 19,
+					isAllowed: 3
+				},
+				[-1, -1]
+			);
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -9050,7 +9501,7 @@ var app = (function () {
 			});
 
 			const { ctx } = this.$$;
-			const props = options.props || ({});
+			const props = options.props || {};
 
 			if (/*locale*/ ctx[1] === undefined && !("locale" in props)) {
 				console.warn("<Datefield> was created without expected prop 'locale'");
@@ -9141,8 +9592,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Dialog.svelte generated by Svelte v3.16.0 */
-	const file$c = "F:\\svelte\\svelte-leaflet1\\src\\Dialog.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Dialog.svelte generated by Svelte v3.23.2 */
+	const file$c = "F:\\myGit\\svelte-leaflet-comp\\src\\Dialog.svelte";
 	const get_footer_slot_changes = dirty => ({});
 	const get_footer_slot_context = ctx => ({});
 	const get_actions_slot_changes = dirty => ({});
@@ -9159,19 +9610,20 @@ var app = (function () {
 		let div1;
 		let t1;
 		let t2;
-		let div2_intro;
 		let events_action;
+		let div2_intro;
 		let div3_transition;
 		let current;
+		let mounted;
 		let dispose;
-		const title_slot_template = /*$$slots*/ ctx[19].title;
-		const title_slot = create_slot(title_slot_template, ctx, /*$$scope*/ ctx[18], get_title_slot_context);
-		const default_slot_template = /*$$slots*/ ctx[19].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[18], null);
-		const actions_slot_template = /*$$slots*/ ctx[19].actions;
-		const actions_slot = create_slot(actions_slot_template, ctx, /*$$scope*/ ctx[18], get_actions_slot_context);
-		const footer_slot_template = /*$$slots*/ ctx[19].footer;
-		const footer_slot = create_slot(footer_slot_template, ctx, /*$$scope*/ ctx[18], get_footer_slot_context);
+		const title_slot_template = /*$$slots*/ ctx[15].title;
+		const title_slot = create_slot(title_slot_template, ctx, /*$$scope*/ ctx[14], get_title_slot_context);
+		const default_slot_template = /*$$slots*/ ctx[15].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[14], null);
+		const actions_slot_template = /*$$slots*/ ctx[15].actions;
+		const actions_slot = create_slot(actions_slot_template, ctx, /*$$scope*/ ctx[14], get_actions_slot_context);
+		const footer_slot_template = /*$$slots*/ ctx[15].footer;
+		const footer_slot = create_slot(footer_slot_template, ctx, /*$$scope*/ ctx[14], get_footer_slot_context);
 
 		let div2_levels = [
 			{ class: "dialog " + /*className*/ ctx[1] },
@@ -9201,22 +9653,15 @@ var app = (function () {
 				if (actions_slot) actions_slot.c();
 				t2 = space();
 				if (footer_slot) footer_slot.c();
-				attr_dev(div0, "class", "title svelte-1pkw9hl");
+				attr_dev(div0, "class", "title svelte-88q7da");
 				add_location(div0, file$c, 26, 3, 604);
-				attr_dev(div1, "class", "content svelte-1pkw9hl");
+				attr_dev(div1, "class", "content svelte-88q7da");
 				add_location(div1, file$c, 30, 3, 664);
 				set_attributes(div2, div2_data);
-				toggle_class(div2, "svelte-1pkw9hl", true);
+				toggle_class(div2, "svelte-88q7da", true);
 				add_location(div2, file$c, 13, 2, 284);
-				attr_dev(div3, "class", "overlay svelte-1pkw9hl");
+				attr_dev(div3, "class", "overlay svelte-88q7da");
 				add_location(div3, file$c, 3, 1, 78);
-
-				dispose = [
-					listen_dev(div2, "mousedown", stop_propagation(/*mousedown_handler*/ ctx[20]), false, false, true),
-					listen_dev(div2, "mouseenter", /*mouseenter_handler*/ ctx[22], false, false, false),
-					listen_dev(div3, "mousedown", /*mousedown_handler_1*/ ctx[23], false, false, false),
-					listen_dev(div3, "mouseup", /*mouseup_handler*/ ctx[24], false, false, false)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div3, anchor);
@@ -9246,37 +9691,56 @@ var app = (function () {
 					footer_slot.m(div2, null);
 				}
 
-				/*div2_binding*/ ctx[21](div2);
-				events_action = /*events*/ ctx[8].call(null, div2) || ({});
+				/*div2_binding*/ ctx[17](div2);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						action_destroyer(events_action = /*events*/ ctx[8].call(null, div2)),
+						listen_dev(div2, "mousedown", stop_propagation(/*mousedown_handler*/ ctx[16]), false, false, true),
+						listen_dev(div2, "mouseenter", /*mouseenter_handler*/ ctx[18], false, false, false),
+						listen_dev(div3, "mousedown", /*mousedown_handler_1*/ ctx[19], false, false, false),
+						listen_dev(div3, "mouseup", /*mouseup_handler*/ ctx[20], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if (title_slot && title_slot.p && dirty & /*$$scope*/ 262144) {
-					title_slot.p(get_slot_context(title_slot_template, ctx, /*$$scope*/ ctx[18], get_title_slot_context), get_slot_changes(title_slot_template, /*$$scope*/ ctx[18], dirty, get_title_slot_changes));
+				if (title_slot) {
+					if (title_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(title_slot, title_slot_template, ctx, /*$$scope*/ ctx[14], dirty, get_title_slot_changes, get_title_slot_context);
+					}
 				}
 
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 262144) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[18], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[18], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[14], dirty, null, null);
+					}
 				}
 
-				if (actions_slot && actions_slot.p && dirty & /*$$scope*/ 262144) {
-					actions_slot.p(get_slot_context(actions_slot_template, ctx, /*$$scope*/ ctx[18], get_actions_slot_context), get_slot_changes(actions_slot_template, /*$$scope*/ ctx[18], dirty, get_actions_slot_changes));
+				if (actions_slot) {
+					if (actions_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(actions_slot, actions_slot_template, ctx, /*$$scope*/ ctx[14], dirty, get_actions_slot_changes, get_actions_slot_context);
+					}
 				}
 
-				if (footer_slot && footer_slot.p && dirty & /*$$scope*/ 262144) {
-					footer_slot.p(get_slot_context(footer_slot_template, ctx, /*$$scope*/ ctx[18], get_footer_slot_context), get_slot_changes(footer_slot_template, /*$$scope*/ ctx[18], dirty, get_footer_slot_changes));
+				if (footer_slot) {
+					if (footer_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(footer_slot, footer_slot_template, ctx, /*$$scope*/ ctx[14], dirty, get_footer_slot_changes, get_footer_slot_context);
+					}
 				}
 
-				set_attributes(div2, get_spread_update(div2_levels, [
-					dirty & /*className*/ 2 && ({ class: "dialog " + /*className*/ ctx[1] }),
-					dirty & /*width, style*/ 12 && ({
+				set_attributes(div2, div2_data = get_spread_update(div2_levels, [
+					dirty & /*className*/ 2 && { class: "dialog " + /*className*/ ctx[1] },
+					dirty & /*width, style*/ 12 && {
 						style: `width: ${/*width*/ ctx[3]}px;${/*style*/ ctx[2]}`
-					}),
+					},
 					{ tabindex: "-1" },
 					dirty & /*attrs*/ 64 && /*attrs*/ ctx[6]
 				]));
 
-				toggle_class(div2, "svelte-1pkw9hl", true);
+				toggle_class(div2, "svelte-88q7da", true);
 			},
 			i: function intro(local) {
 				if (current) return;
@@ -9320,9 +9784,9 @@ var app = (function () {
 				if (default_slot) default_slot.d(detaching);
 				if (actions_slot) actions_slot.d(detaching);
 				if (footer_slot) footer_slot.d(detaching);
-				/*div2_binding*/ ctx[21](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*div2_binding*/ ctx[17](null);
 				if (detaching && div3_transition) div3_transition.end();
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -9341,6 +9805,7 @@ var app = (function () {
 	function create_fragment$c(ctx) {
 		let if_block_anchor;
 		let current;
+		let mounted;
 		let dispose;
 		let if_block = /*visible*/ ctx[0] && create_if_block$9(ctx);
 
@@ -9348,11 +9813,6 @@ var app = (function () {
 			c: function create() {
 				if (if_block) if_block.c();
 				if_block_anchor = empty();
-
-				dispose = [
-					listen_dev(window, "keydown", /*onKey*/ ctx[10], false, false, false),
-					listen_dev(window, "popstate", /*onPopstate*/ ctx[11], false, false, false)
-				];
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -9361,12 +9821,24 @@ var app = (function () {
 				if (if_block) if_block.m(target, anchor);
 				insert_dev(target, if_block_anchor, anchor);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(window, "keydown", /*onKey*/ ctx[10], false, false, false),
+						listen_dev(window, "popstate", /*onPopstate*/ ctx[11], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (/*visible*/ ctx[0]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*visible*/ 1) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$9(ctx);
 						if_block.c();
@@ -9395,6 +9867,7 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (if_block) if_block.d(detaching);
 				if (detaching) detach_dev(if_block_anchor);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -9427,7 +9900,7 @@ var app = (function () {
 
 		onMount(async () => {
 			await tick();
-			$$invalidate(14, mounted = true);
+			$$invalidate(21, mounted = true);
 		});
 
 		onDestroy(() => {
@@ -9477,6 +9950,7 @@ var app = (function () {
 		}
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Dialog", $$slots, ['title','default','actions','footer']);
 
 		function mousedown_handler(event) {
 			bubble($$self, event);
@@ -9484,7 +9958,8 @@ var app = (function () {
 
 		function div2_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(7, elm = $$value);
+				elm = $$value;
+				$$invalidate(7, elm);
 			});
 		}
 
@@ -9501,7 +9976,7 @@ var app = (function () {
 		};
 
 		$$self.$set = $$new_props => {
-			$$invalidate(17, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(24, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("class" in $$new_props) $$invalidate(1, className = $$new_props.class);
 			if ("style" in $$new_props) $$invalidate(2, style = $$new_props.style);
 			if ("visible" in $$new_props) $$invalidate(0, visible = $$new_props.visible);
@@ -9509,27 +9984,42 @@ var app = (function () {
 			if ("modal" in $$new_props) $$invalidate(4, modal = $$new_props.modal);
 			if ("closeByEsc" in $$new_props) $$invalidate(12, closeByEsc = $$new_props.closeByEsc);
 			if ("beforeClose" in $$new_props) $$invalidate(13, beforeClose = $$new_props.beforeClose);
-			if ("$$scope" in $$new_props) $$invalidate(18, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(14, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				style,
-				visible,
-				width,
-				modal,
-				closeByEsc,
-				beforeClose,
-				mouseDownOutside,
-				attrs,
-				mounted,
-				elm
-			};
-		};
+		$$self.$capture_state = () => ({
+			tick,
+			onMount,
+			onDestroy,
+			createEventDispatcher,
+			fade,
+			scale,
+			quintOut,
+			current_component,
+			getEventsAction,
+			trapTabKey,
+			enableScroll,
+			dispatch,
+			events,
+			className,
+			style,
+			visible,
+			width,
+			modal,
+			closeByEsc,
+			beforeClose,
+			mouseDownOutside,
+			attrs,
+			mounted,
+			elm,
+			close,
+			onVisible,
+			onKey,
+			onPopstate
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(17, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(24, $$props = assign(assign({}, $$props), $$new_props));
 			if ("className" in $$props) $$invalidate(1, className = $$new_props.className);
 			if ("style" in $$props) $$invalidate(2, style = $$new_props.style);
 			if ("visible" in $$props) $$invalidate(0, visible = $$new_props.visible);
@@ -9539,17 +10029,23 @@ var app = (function () {
 			if ("beforeClose" in $$props) $$invalidate(13, beforeClose = $$new_props.beforeClose);
 			if ("mouseDownOutside" in $$props) $$invalidate(5, mouseDownOutside = $$new_props.mouseDownOutside);
 			if ("attrs" in $$props) $$invalidate(6, attrs = $$new_props.attrs);
-			if ("mounted" in $$props) $$invalidate(14, mounted = $$new_props.mounted);
+			if ("mounted" in $$props) $$invalidate(21, mounted = $$new_props.mounted);
 			if ("elm" in $$props) $$invalidate(7, elm = $$new_props.elm);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { style, visible, width, modal, closeByEsc, beforeClose, ...other } = $$props;
+
 				$$invalidate(6, attrs = other);
 			}
 
-			if ($$self.$$.dirty & /*visible, mounted*/ 16385) {
+			if ($$self.$$.dirty & /*visible, mounted*/ 2097153) {
 				 if (visible) {
 					mounted && enableScroll(false);
 					onVisible();
@@ -9577,10 +10073,6 @@ var app = (function () {
 			onPopstate,
 			closeByEsc,
 			beforeClose,
-			mounted,
-			dispatch,
-			onVisible,
-			$$props,
 			$$scope,
 			$$slots,
 			mousedown_handler,
@@ -9670,12 +10162,40 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Menu.svelte generated by Svelte v3.16.0 */
+	/* F:\myGit\svelte-leaflet-comp\src\Menu.svelte generated by Svelte v3.23.2 */
 
 	const { console: console_1$1 } = globals;
-	const file$d = "F:\\svelte\\svelte-leaflet1\\src\\Menu.svelte";
+	const file$d = "F:\\myGit\\svelte-leaflet-comp\\src\\Menu.svelte";
 	const get_activator_slot_changes = dirty => ({});
 	const get_activator_slot_context = ctx => ({});
+
+	// (2:24)    
+	function fallback_block(ctx) {
+		let span;
+
+		const block = {
+			c: function create() {
+				span = element("span");
+				add_location(span, file$d, 2, 2, 104);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, span, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) detach_dev(span);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: fallback_block.name,
+			type: "fallback",
+			source: "(2:24)    ",
+			ctx
+		});
+
+		return block;
+	}
 
 	// (6:1) <Popover class={className} {style} {origin} {dx} {dy} bind:visible on:click={onPopoverClick}>
 	function create_default_slot$3(ctx) {
@@ -9703,8 +10223,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 16384) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[14], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[14], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[14], dirty, null, null);
+					}
 				}
 
 				if (!current || dirty & /*width*/ 32 && ul_style_value !== (ul_style_value = `min-width: ${/*width*/ ctx[5]}px`)) {
@@ -9739,14 +10261,16 @@ var app = (function () {
 
 	function create_fragment$d(ctx) {
 		let div;
-		let span;
 		let t;
+		let popover;
 		let updating_visible;
 		let events_action;
 		let current;
+		let mounted;
 		let dispose;
 		const activator_slot_template = /*$$slots*/ ctx[11].activator;
 		const activator_slot = create_slot(activator_slot_template, ctx, /*$$scope*/ ctx[14], get_activator_slot_context);
+		const activator_slot_or_fallback = activator_slot || fallback_block(ctx);
 
 		function popover_visible_binding(value) {
 			/*popover_visible_binding*/ ctx[12].call(null, value);
@@ -9766,29 +10290,18 @@ var app = (function () {
 			popover_props.visible = /*visible*/ ctx[6];
 		}
 
-		const popover = new Popover({ props: popover_props, $$inline: true });
+		popover = new Popover({ props: popover_props, $$inline: true });
 		binding_callbacks.push(() => bind(popover, "visible", popover_visible_binding));
 		popover.$on("click", /*onPopoverClick*/ ctx[10]);
 
 		const block = {
 			c: function create() {
 				div = element("div");
-
-				if (!activator_slot) {
-					span = element("span");
-				}
-
-				if (activator_slot) activator_slot.c();
+				if (activator_slot_or_fallback) activator_slot_or_fallback.c();
 				t = space();
 				create_component(popover.$$.fragment);
-
-				if (!activator_slot) {
-					add_location(span, file$d, 2, 2, 104);
-				}
-
 				attr_dev(div, "class", "menu svelte-1vc5q8h");
 				add_location(div, file$d, 0, 0, 0);
-				dispose = listen_dev(div, "click", /*onActivatorClick*/ ctx[9], false, false, false);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -9796,23 +10309,29 @@ var app = (function () {
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
 
-				if (!activator_slot) {
-					append_dev(div, span);
-				}
-
-				if (activator_slot) {
-					activator_slot.m(div, null);
+				if (activator_slot_or_fallback) {
+					activator_slot_or_fallback.m(div, null);
 				}
 
 				append_dev(div, t);
 				mount_component(popover, div, null);
 				/*div_binding*/ ctx[13](div);
-				events_action = /*events*/ ctx[8].call(null, div) || ({});
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(div, "click", /*onActivatorClick*/ ctx[9], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[8].call(null, div))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
-				if (activator_slot && activator_slot.p && dirty & /*$$scope*/ 16384) {
-					activator_slot.p(get_slot_context(activator_slot_template, ctx, /*$$scope*/ ctx[14], get_activator_slot_context), get_slot_changes(activator_slot_template, /*$$scope*/ ctx[14], dirty, get_activator_slot_changes));
+				if (activator_slot) {
+					if (activator_slot.p && dirty & /*$$scope*/ 16384) {
+						update_slot(activator_slot, activator_slot_template, ctx, /*$$scope*/ ctx[14], dirty, get_activator_slot_changes, get_activator_slot_context);
+					}
 				}
 
 				const popover_changes = {};
@@ -9836,22 +10355,22 @@ var app = (function () {
 			},
 			i: function intro(local) {
 				if (current) return;
-				transition_in(activator_slot, local);
+				transition_in(activator_slot_or_fallback, local);
 				transition_in(popover.$$.fragment, local);
 				current = true;
 			},
 			o: function outro(local) {
-				transition_out(activator_slot, local);
+				transition_out(activator_slot_or_fallback, local);
 				transition_out(popover.$$.fragment, local);
 				current = false;
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
-				if (activator_slot) activator_slot.d(detaching);
+				if (activator_slot_or_fallback) activator_slot_or_fallback.d(detaching);
 				destroy_component(popover);
 				/*div_binding*/ ctx[13](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
-				dispose();
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -9872,7 +10391,7 @@ var app = (function () {
 		let { style = null } = $$props;
 		let { dx = 0 } = $$props;
 		let { dy = 0 } = $$props;
-		let { origin = "top left" } = $$props;
+		let { origin = "top left" } = $$props; // 'bottom left', 'bottom right', 'top left', 'top right'
 		let { width = 2 * 56 } = $$props;
 		let visible = false;
 		let menuEl;
@@ -9904,6 +10423,7 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Menu", $$slots, ['activator','default']);
 
 		function popover_visible_binding(value) {
 			visible = value;
@@ -9912,7 +10432,8 @@ var app = (function () {
 
 		function div_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(7, menuEl = $$value);
+				menuEl = $$value;
+				$$invalidate(7, menuEl);
 			});
 		}
 
@@ -9926,18 +10447,22 @@ var app = (function () {
 			if ("$$scope" in $$props) $$invalidate(14, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				style,
-				dx,
-				dy,
-				origin,
-				width,
-				visible,
-				menuEl
-			};
-		};
+		$$self.$capture_state = () => ({
+			current_component,
+			getEventsAction,
+			Popover,
+			events,
+			className,
+			style,
+			dx,
+			dy,
+			origin,
+			width,
+			visible,
+			menuEl,
+			onActivatorClick,
+			onPopoverClick
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("className" in $$props) $$invalidate(0, className = $$props.className);
@@ -9949,6 +10474,10 @@ var app = (function () {
 			if ("visible" in $$props) $$invalidate(6, visible = $$props.visible);
 			if ("menuEl" in $$props) $$invalidate(7, menuEl = $$props.menuEl);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			className,
@@ -10039,8 +10568,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Menuitem.svelte generated by Svelte v3.16.0 */
-	const file$e = "F:\\svelte\\svelte-leaflet1\\src\\Menuitem.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Menuitem.svelte generated by Svelte v3.23.2 */
+	const file$e = "F:\\myGit\\svelte-leaflet-comp\\src\\Menuitem.svelte";
 
 	// (18:0) {:else}
 	function create_else_block$2(ctx) {
@@ -10048,9 +10577,10 @@ var app = (function () {
 		let t;
 		let events_action;
 		let current;
+		let mounted;
 		let dispose;
-		const default_slot_template = /*$$slots*/ ctx[10].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[9], null);
+		const default_slot_template = /*$$slots*/ ctx[9].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[8], null);
 		let if_block = /*ripple*/ ctx[1] && create_if_block_2$2(ctx);
 
 		let li_levels = [
@@ -10078,7 +10608,6 @@ var app = (function () {
 				set_attributes(li, li_data);
 				toggle_class(li, "svelte-mmrniu", true);
 				add_location(li, file$e, 18, 1, 259);
-				dispose = listen_dev(li, "keydown", /*onKeydown*/ ctx[7], false, false, false);
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, li, anchor);
@@ -10089,23 +10618,35 @@ var app = (function () {
 
 				append_dev(li, t);
 				if (if_block) if_block.m(li, null);
-				/*li_binding*/ ctx[12](li);
-				events_action = /*events*/ ctx[6].call(null, li) || ({});
+				/*li_binding*/ ctx[11](li);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(li, "keydown", /*onKeydown*/ ctx[7], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[6].call(null, li))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 512) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[9], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[9], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 256) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[8], dirty, null, null);
+					}
 				}
 
 				if (/*ripple*/ ctx[1]) {
-					if (!if_block) {
+					if (if_block) {
+						if (dirty & /*ripple*/ 2) {
+							transition_in(if_block, 1);
+						}
+					} else {
 						if_block = create_if_block_2$2(ctx);
 						if_block.c();
 						transition_in(if_block, 1);
 						if_block.m(li, null);
-					} else {
-						transition_in(if_block, 1);
 					}
 				} else if (if_block) {
 					group_outros();
@@ -10117,13 +10658,13 @@ var app = (function () {
 					check_outros();
 				}
 
-				set_attributes(li, get_spread_update(li_levels, [
-					dirty & /*className*/ 1 && ({
+				set_attributes(li, li_data = get_spread_update(li_levels, [
+					dirty & /*className*/ 1 && {
 						class: "menu-item " + /*className*/ ctx[0]
-					}),
-					dirty & /*disabled*/ 4 && ({
+					},
+					dirty & /*disabled*/ 4 && {
 						tabindex: /*disabled*/ ctx[2] ? "-1" : "0"
-					}),
+					},
 					dirty & /*attrs*/ 16 && /*attrs*/ ctx[4]
 				]));
 
@@ -10144,9 +10685,9 @@ var app = (function () {
 				if (detaching) detach_dev(li);
 				if (default_slot) default_slot.d(detaching);
 				if (if_block) if_block.d();
-				/*li_binding*/ ctx[12](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
-				dispose();
+				/*li_binding*/ ctx[11](null);
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -10168,9 +10709,10 @@ var app = (function () {
 		let t;
 		let events_action;
 		let current;
+		let mounted;
 		let dispose;
-		const default_slot_template = /*$$slots*/ ctx[10].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[9], null);
+		const default_slot_template = /*$$slots*/ ctx[9].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[8], null);
 		let if_block = /*ripple*/ ctx[1] && create_if_block_1$3(ctx);
 
 		let a_levels = [
@@ -10202,7 +10744,6 @@ var app = (function () {
 				add_location(a, file$e, 2, 2, 18);
 				attr_dev(li, "class", "svelte-mmrniu");
 				add_location(li, file$e, 1, 1, 11);
-				dispose = listen_dev(a, "keydown", /*onKeydown*/ ctx[7], false, false, false);
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, li, anchor);
@@ -10214,23 +10755,35 @@ var app = (function () {
 
 				append_dev(a, t);
 				if (if_block) if_block.m(a, null);
-				/*a_binding*/ ctx[11](a);
-				events_action = /*events*/ ctx[6].call(null, a) || ({});
+				/*a_binding*/ ctx[10](a);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(a, "keydown", /*onKeydown*/ ctx[7], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[6].call(null, a))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 512) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[9], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[9], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 256) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[8], dirty, null, null);
+					}
 				}
 
 				if (/*ripple*/ ctx[1]) {
-					if (!if_block) {
+					if (if_block) {
+						if (dirty & /*ripple*/ 2) {
+							transition_in(if_block, 1);
+						}
+					} else {
 						if_block = create_if_block_1$3(ctx);
 						if_block.c();
 						transition_in(if_block, 1);
 						if_block.m(a, null);
-					} else {
-						transition_in(if_block, 1);
 					}
 				} else if (if_block) {
 					group_outros();
@@ -10242,14 +10795,14 @@ var app = (function () {
 					check_outros();
 				}
 
-				set_attributes(a, get_spread_update(a_levels, [
-					dirty & /*className*/ 1 && ({
+				set_attributes(a, a_data = get_spread_update(a_levels, [
+					dirty & /*className*/ 1 && {
 						class: "menu-item " + /*className*/ ctx[0]
-					}),
-					dirty & /*url*/ 8 && ({ href: /*url*/ ctx[3] }),
-					dirty & /*disabled*/ 4 && ({
+					},
+					dirty & /*url*/ 8 && { href: /*url*/ ctx[3] },
+					dirty & /*disabled*/ 4 && {
 						tabindex: /*disabled*/ ctx[2] ? "-1" : "0"
-					}),
+					},
 					dirty & /*attrs*/ 16 && /*attrs*/ ctx[4]
 				]));
 
@@ -10270,9 +10823,9 @@ var app = (function () {
 				if (detaching) detach_dev(li);
 				if (default_slot) default_slot.d(detaching);
 				if (if_block) if_block.d();
-				/*a_binding*/ ctx[11](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
-				dispose();
+				/*a_binding*/ ctx[10](null);
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -10289,8 +10842,9 @@ var app = (function () {
 
 	// (28:2) {#if ripple}
 	function create_if_block_2$2(ctx) {
+		let ripple_1;
 		let current;
-		const ripple_1 = new Ripple({ $$inline: true });
+		ripple_1 = new Ripple({ $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -10327,8 +10881,9 @@ var app = (function () {
 
 	// (13:3) {#if ripple}
 	function create_if_block_1$3(ctx) {
+		let ripple_1;
 		let current;
-		const ripple_1 = new Ripple({ $$inline: true });
+		ripple_1 = new Ripple({ $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -10453,6 +11008,7 @@ var app = (function () {
 		let elm;
 
 		function onKeydown(e) {
+			// click simulate
 			if (e.keyCode === 13 || e.keyCode === 32) {
 				e.stopPropagation();
 				e.preventDefault();
@@ -10463,39 +11019,45 @@ var app = (function () {
 		}
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Menuitem", $$slots, ['default']);
 
 		function a_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(5, elm = $$value);
+				elm = $$value;
+				$$invalidate(5, elm);
 			});
 		}
 
 		function li_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(5, elm = $$value);
+				elm = $$value;
+				$$invalidate(5, elm);
 			});
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(8, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(12, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("class" in $$new_props) $$invalidate(0, className = $$new_props.class);
 			if ("ripple" in $$new_props) $$invalidate(1, ripple = $$new_props.ripple);
-			if ("$$scope" in $$new_props) $$invalidate(9, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(8, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				className,
-				ripple,
-				disabled,
-				url,
-				attrs,
-				elm
-			};
-		};
+		$$self.$capture_state = () => ({
+			current_component,
+			getEventsAction,
+			Ripple,
+			events,
+			className,
+			ripple,
+			disabled,
+			url,
+			attrs,
+			elm,
+			onKeydown
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(8, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(12, $$props = assign(assign({}, $$props), $$new_props));
 			if ("className" in $$props) $$invalidate(0, className = $$new_props.className);
 			if ("ripple" in $$props) $$invalidate(1, ripple = $$new_props.ripple);
 			if ("disabled" in $$props) $$invalidate(2, disabled = $$new_props.disabled);
@@ -10504,9 +11066,15 @@ var app = (function () {
 			if ("elm" in $$props) $$invalidate(5, elm = $$new_props.elm);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { href, ripple, ...other } = $$props;
+
 				delete other.class;
 
 				if (other.disabled === false) {
@@ -10530,7 +11098,6 @@ var app = (function () {
 			elm,
 			events,
 			onKeydown,
-			$$props,
 			$$scope,
 			$$slots,
 			a_binding,
@@ -10568,14 +11135,15 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Radio.svelte generated by Svelte v3.16.0 */
-	const file$f = "F:\\svelte\\svelte-leaflet1\\src\\Radio.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Radio.svelte generated by Svelte v3.23.2 */
+	const file$f = "F:\\myGit\\svelte-leaflet-comp\\src\\Radio.svelte";
 
 	// (6:2) {#if ripple}
 	function create_if_block$b(ctx) {
+		let ripple_1;
 		let current;
 
-		const ripple_1 = new Ripple({
+		ripple_1 = new Ripple({
 				props: { center: true, circle: true },
 				$$inline: true
 			});
@@ -10619,15 +11187,17 @@ var app = (function () {
 		let events_action;
 		let t0;
 		let div0;
+		let icon;
 		let t1;
 		let div0_style_value;
 		let t2;
 		let div1;
 		let label_class_value;
 		let current;
+		let mounted;
 		let dispose;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: /*group*/ ctx[0] === /*value*/ ctx[2]
 					? /*radioChecked*/ ctx[11]
@@ -10637,8 +11207,8 @@ var app = (function () {
 			});
 
 		let if_block = /*ripple*/ ctx[7] && create_if_block$b(ctx);
-		const default_slot_template = /*$$slots*/ ctx[16].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[15], null);
+		const default_slot_template = /*$$slots*/ ctx[14].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[13], null);
 
 		const block = {
 			c: function create() {
@@ -10657,7 +11227,7 @@ var app = (function () {
 				input.__value = /*value*/ ctx[2];
 				input.value = input.__value;
 				attr_dev(input, "class", "svelte-j29u99");
-				/*$$binding_groups*/ ctx[18][0].push(input);
+				/*$$binding_groups*/ ctx[16][0].push(input);
 				add_location(input, file$f, 2, 1, 131);
 				attr_dev(div0, "class", "mark svelte-j29u99");
 
@@ -10674,7 +11244,6 @@ var app = (function () {
 				toggle_class(label, "right", /*right*/ ctx[6]);
 				toggle_class(label, "disabled", /*disabled*/ ctx[5]);
 				add_location(label, file$f, 0, 0, 0);
-				dispose = listen_dev(input, "change", /*input_change_handler*/ ctx[17]);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -10683,8 +11252,7 @@ var app = (function () {
 				insert_dev(target, label, anchor);
 				append_dev(label, input);
 				input.checked = input.__value === /*group*/ ctx[0];
-				/*input_binding*/ ctx[19](input);
-				events_action = /*events*/ ctx[10].call(null, input) || ({});
+				/*input_binding*/ ctx[17](input);
 				append_dev(label, t0);
 				append_dev(label, div0);
 				mount_component(icon, div0, null);
@@ -10698,6 +11266,15 @@ var app = (function () {
 				}
 
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input, "change", /*input_change_handler*/ ctx[15]),
+						action_destroyer(events_action = /*events*/ ctx[10].call(null, input))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (!current || dirty & /*disabled*/ 32) {
@@ -10723,13 +11300,15 @@ var app = (function () {
 				icon.$set(icon_changes);
 
 				if (/*ripple*/ ctx[7]) {
-					if (!if_block) {
+					if (if_block) {
+						if (dirty & /*ripple*/ 128) {
+							transition_in(if_block, 1);
+						}
+					} else {
 						if_block = create_if_block$b(ctx);
 						if_block.c();
 						transition_in(if_block, 1);
 						if_block.m(div0, null);
-					} else {
-						transition_in(if_block, 1);
 					}
 				} else if (if_block) {
 					group_outros();
@@ -10747,8 +11326,10 @@ var app = (function () {
 					attr_dev(div0, "style", div0_style_value);
 				}
 
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 32768) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[15], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[15], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 8192) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[13], dirty, null, null);
+					}
 				}
 
 				if (!current || dirty & /*className*/ 8 && label_class_value !== (label_class_value = "" + (null_to_empty(/*className*/ ctx[3]) + " svelte-j29u99"))) {
@@ -10786,13 +11367,13 @@ var app = (function () {
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(label);
-				/*$$binding_groups*/ ctx[18][0].splice(/*$$binding_groups*/ ctx[18][0].indexOf(input), 1);
-				/*input_binding*/ ctx[19](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*$$binding_groups*/ ctx[16][0].splice(/*$$binding_groups*/ ctx[16][0].indexOf(input), 1);
+				/*input_binding*/ ctx[17](null);
 				destroy_component(icon);
 				if (if_block) if_block.d();
 				if (default_slot) default_slot.d(detaching);
-				dispose();
+				mounted = false;
+				run_all(dispose);
 			}
 		};
 
@@ -10813,7 +11394,7 @@ var app = (function () {
 		let { value = "on" } = $$props;
 		let { class: className = "" } = $$props;
 		let { style = null } = $$props;
-		let { color = "primary" } = $$props;
+		let { color = "primary" } = $$props; // primary, accent, currentColor, inherit
 		let { disabled = false } = $$props;
 		let { right = false } = $$props;
 		let { ripple = true } = $$props;
@@ -10823,6 +11404,7 @@ var app = (function () {
 		let radioChecked = "M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zm0-5C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z";
 		let radioUnchecked = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z";
 
+		// NOTE: not reactive
 		onMount(async () => {
 			await tick();
 
@@ -10834,6 +11416,7 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Radio", $$slots, ['default']);
 		const $$binding_groups = [[]];
 
 		function input_change_handler() {
@@ -10843,12 +11426,13 @@ var app = (function () {
 
 		function input_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(9, elm = $$value);
+				elm = $$value;
+				$$invalidate(9, elm);
 			});
 		}
 
 		$$self.$set = $$new_props => {
-			$$invalidate(14, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
+			$$invalidate(19, $$props = assign(assign({}, $$props), exclude_internal_props($$new_props)));
 			if ("group" in $$new_props) $$invalidate(0, group = $$new_props.group);
 			if ("value" in $$new_props) $$invalidate(2, value = $$new_props.value);
 			if ("class" in $$new_props) $$invalidate(3, className = $$new_props.class);
@@ -10858,29 +11442,35 @@ var app = (function () {
 			if ("right" in $$new_props) $$invalidate(6, right = $$new_props.right);
 			if ("ripple" in $$new_props) $$invalidate(7, ripple = $$new_props.ripple);
 			if ("title" in $$new_props) $$invalidate(8, title = $$new_props.title);
-			if ("$$scope" in $$new_props) $$invalidate(15, $$scope = $$new_props.$$scope);
+			if ("$$scope" in $$new_props) $$invalidate(13, $$scope = $$new_props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				group,
-				value,
-				className,
-				style,
-				color,
-				disabled,
-				right,
-				ripple,
-				title,
-				elm,
-				attrs,
-				radioChecked,
-				radioUnchecked
-			};
-		};
+		$$self.$capture_state = () => ({
+			tick,
+			onMount,
+			current_component,
+			getEventsAction,
+			islegacy,
+			Icon,
+			Ripple,
+			events,
+			group,
+			value,
+			className,
+			style,
+			color,
+			disabled,
+			right,
+			ripple,
+			title,
+			elm,
+			attrs,
+			radioChecked,
+			radioUnchecked
+		});
 
 		$$self.$inject_state = $$new_props => {
-			$$invalidate(14, $$props = assign(assign({}, $$props), $$new_props));
+			$$invalidate(19, $$props = assign(assign({}, $$props), $$new_props));
 			if ("group" in $$props) $$invalidate(0, group = $$new_props.group);
 			if ("value" in $$props) $$invalidate(2, value = $$new_props.value);
 			if ("className" in $$props) $$invalidate(3, className = $$new_props.className);
@@ -10896,9 +11486,15 @@ var app = (function () {
 			if ("radioUnchecked" in $$props) $$invalidate(12, radioUnchecked = $$new_props.radioUnchecked);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			 {
+				/* eslint-disable no-unused-vars */
 				const { group, value, style, color, disabled, right, ripple, title, ...other } = $$props;
+
 				delete other.class;
 				attrs = other;
 			}
@@ -10928,8 +11524,6 @@ var app = (function () {
 			events,
 			radioChecked,
 			radioUnchecked,
-			attrs,
-			$$props,
 			$$scope,
 			$$slots,
 			input_change_handler,
@@ -11035,28 +11629,33 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Sidepanel.svelte generated by Svelte v3.16.0 */
+	/* F:\myGit\svelte-leaflet-comp\src\Sidepanel.svelte generated by Svelte v3.23.2 */
 
 	const { window: window_1$1 } = globals;
-	const file$g = "F:\\svelte\\svelte-leaflet1\\src\\Sidepanel.svelte";
+	const file$g = "F:\\myGit\\svelte-leaflet-comp\\src\\Sidepanel.svelte";
 
 	// (4:0) {#if visible}
 	function create_if_block$c(ctx) {
 		let div;
 		let div_transition;
 		let current;
+		let mounted;
 		let dispose;
 
 		const block = {
 			c: function create() {
 				div = element("div");
-				attr_dev(div, "class", "overlay svelte-1o2jp7l");
+				attr_dev(div, "class", "overlay svelte-17hiab");
 				add_location(div, file$g, 4, 1, 127);
-				dispose = listen_dev(div, "click", /*hide*/ ctx[4], false, false, false);
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
 				current = true;
+
+				if (!mounted) {
+					dispose = listen_dev(div, "click", /*hide*/ ctx[4], false, false, false);
+					mounted = true;
+				}
 			},
 			p: noop,
 			i: function intro(local) {
@@ -11077,6 +11676,7 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
 				if (detaching && div_transition) div_transition.end();
+				mounted = false;
 				dispose();
 			}
 		};
@@ -11098,12 +11698,11 @@ var app = (function () {
 		let aside;
 		let events_action;
 		let current;
+		let mounted;
 		let dispose;
-		document.body.addEventListener("touchstart", /*onTouchStart*/ ctx[6]);
-		document.body.addEventListener("touchend", /*onTouchEnd*/ ctx[7]);
 		let if_block = /*visible*/ ctx[0] && create_if_block$c(ctx);
-		const default_slot_template = /*$$slots*/ ctx[14].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[13], null);
+		const default_slot_template = /*$$slots*/ ctx[11].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[10], null);
 
 		const block = {
 			c: function create() {
@@ -11112,17 +11711,12 @@ var app = (function () {
 				t1 = space();
 				aside = element("aside");
 				if (default_slot) default_slot.c();
-				attr_dev(aside, "class", "side-panel svelte-1o2jp7l");
+				attr_dev(aside, "class", "side-panel svelte-17hiab");
 				attr_dev(aside, "tabindex", "-1");
 				toggle_class(aside, "left", !/*right*/ ctx[1]);
 				toggle_class(aside, "right", /*right*/ ctx[1]);
 				toggle_class(aside, "visible", /*visible*/ ctx[0]);
 				add_location(aside, file$g, 6, 0, 209);
-
-				dispose = [
-					listen_dev(window_1$1, "keydown", /*onKeydown*/ ctx[8], false, false, false),
-					listen_dev(aside, "transitionend", /*transitionEnd*/ ctx[5], false, false, false)
-				];
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -11137,15 +11731,29 @@ var app = (function () {
 					default_slot.m(aside, null);
 				}
 
-				/*aside_binding*/ ctx[15](aside);
-				events_action = /*events*/ ctx[3].call(null, aside) || ({});
+				/*aside_binding*/ ctx[12](aside);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(window_1$1, "keydown", /*onKeydown*/ ctx[8], false, false, false),
+						listen_dev(document.body, "touchstart", /*onTouchStart*/ ctx[6], false, false, false),
+						listen_dev(document.body, "touchend", /*onTouchEnd*/ ctx[7], false, false, false),
+						listen_dev(aside, "transitionend", /*transitionEnd*/ ctx[5], false, false, false),
+						action_destroyer(events_action = /*events*/ ctx[3].call(null, aside))
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (/*visible*/ ctx[0]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*visible*/ 1) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$c(ctx);
 						if_block.c();
@@ -11162,8 +11770,10 @@ var app = (function () {
 					check_outros();
 				}
 
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 8192) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[13], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[13], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 1024) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[10], dirty, null, null);
+					}
 				}
 
 				if (dirty & /*right*/ 2) {
@@ -11190,15 +11800,13 @@ var app = (function () {
 				current = false;
 			},
 			d: function destroy(detaching) {
-				document.body.removeEventListener("touchstart", /*onTouchStart*/ ctx[6]);
-				document.body.removeEventListener("touchend", /*onTouchEnd*/ ctx[7]);
 				if (detaching) detach_dev(t0);
 				if (if_block) if_block.d(detaching);
 				if (detaching) detach_dev(t1);
 				if (detaching) detach_dev(aside);
 				if (default_slot) default_slot.d(detaching);
-				/*aside_binding*/ ctx[15](null);
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				/*aside_binding*/ ctx[12](null);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -11229,7 +11837,7 @@ var app = (function () {
 
 		onMount(async () => {
 			await tick();
-			$$invalidate(11, mounted = true);
+			$$invalidate(14, mounted = true);
 		});
 
 		function hide() {
@@ -11313,10 +11921,12 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Sidepanel", $$slots, ['default']);
 
 		function aside_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(2, elm = $$value);
+				elm = $$value;
+				$$invalidate(2, elm);
 			});
 		}
 
@@ -11324,32 +11934,50 @@ var app = (function () {
 			if ("right" in $$props) $$invalidate(1, right = $$props.right);
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 			if ("disableScroll" in $$props) $$invalidate(9, disableScroll = $$props.disableScroll);
-			if ("$$scope" in $$props) $$invalidate(13, $$scope = $$props.$$scope);
+			if ("$$scope" in $$props) $$invalidate(10, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				oneVisible,
-				right,
-				visible,
-				disableScroll,
-				touchStart,
-				mounted,
-				elm
-			};
-		};
+		$$self.$capture_state = () => ({
+			oneVisible,
+			tick,
+			onMount,
+			fade,
+			current_component,
+			getEventsAction,
+			trapTabKey,
+			enableScroll,
+			events,
+			right,
+			visible,
+			disableScroll,
+			swipeArea,
+			swipeMin,
+			touchStart,
+			mounted,
+			elm,
+			hide,
+			show,
+			transitionEnd,
+			onTouchStart,
+			onTouchEnd,
+			onKeydown
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("right" in $$props) $$invalidate(1, right = $$props.right);
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 			if ("disableScroll" in $$props) $$invalidate(9, disableScroll = $$props.disableScroll);
 			if ("touchStart" in $$props) touchStart = $$props.touchStart;
-			if ("mounted" in $$props) $$invalidate(11, mounted = $$props.mounted);
+			if ("mounted" in $$props) $$invalidate(14, mounted = $$props.mounted);
 			if ("elm" in $$props) $$invalidate(2, elm = $$props.elm);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
-			if ($$self.$$.dirty & /*visible, mounted, disableScroll*/ 2561) {
+			if ($$self.$$.dirty & /*visible, mounted, disableScroll*/ 16897) {
 				 if (visible) {
 					oneVisible = true;
 					mounted && disableScroll && enableScroll(false);
@@ -11371,9 +11999,6 @@ var app = (function () {
 			onTouchEnd,
 			onKeydown,
 			disableScroll,
-			touchStart,
-			mounted,
-			show,
 			$$scope,
 			$$slots,
 			aside_binding
@@ -11418,8 +12043,8 @@ var app = (function () {
 		}
 	}
 
-	/* F:\svelte\svelte-leaflet1\src\Snackbar.svelte generated by Svelte v3.16.0 */
-	const file$h = "F:\\svelte\\svelte-leaflet1\\src\\Snackbar.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Snackbar.svelte generated by Svelte v3.23.2 */
+	const file$h = "F:\\myGit\\svelte-leaflet-comp\\src\\Snackbar.svelte";
 	const get_action_slot_changes = dirty => ({});
 	const get_action_slot_context = ctx => ({});
 
@@ -11431,25 +12056,17 @@ var app = (function () {
 		let div1;
 		let div2_class_value;
 		let div2_style_value;
+		let events_action;
 		let div2_intro;
 		let div2_outro;
-		let events_action;
 		let current;
-		const default_slot_template = /*$$slots*/ ctx[9].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[11], null);
-		const action_slot_template = /*$$slots*/ ctx[9].action;
-		const action_slot = create_slot(action_slot_template, ctx, /*$$scope*/ ctx[11], get_action_slot_context);
-
-		const button = new Button({
-				props: {
-					color: "#f50057",
-					$$slots: { default: [create_default_slot$4] },
-					$$scope: { ctx }
-				},
-				$$inline: true
-			});
-
-		button.$on("click", /*click_handler*/ ctx[10]);
+		let mounted;
+		let dispose;
+		const default_slot_template = /*$$slots*/ ctx[8].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[10], null);
+		const action_slot_template = /*$$slots*/ ctx[8].action;
+		const action_slot = create_slot(action_slot_template, ctx, /*$$scope*/ ctx[10], get_action_slot_context);
+		const action_slot_or_fallback = action_slot || fallback_block$1(ctx);
 
 		const block = {
 			c: function create() {
@@ -11458,12 +12075,7 @@ var app = (function () {
 				if (default_slot) default_slot.c();
 				t = space();
 				div1 = element("div");
-
-				if (!action_slot) {
-					create_component(button.$$.fragment);
-				}
-
-				if (action_slot) action_slot.c();
+				if (action_slot_or_fallback) action_slot_or_fallback.c();
 				attr_dev(div0, "class", "message svelte-1ftyf0y");
 				add_location(div0, file$h, 10, 2, 267);
 				attr_dev(div1, "class", "action svelte-1ftyf0y");
@@ -11485,34 +12097,32 @@ var app = (function () {
 				append_dev(div2, t);
 				append_dev(div2, div1);
 
-				if (!action_slot) {
-					mount_component(button, div1, null);
+				if (action_slot_or_fallback) {
+					action_slot_or_fallback.m(div1, null);
+				}
+
+				current = true;
+
+				if (!mounted) {
+					dispose = action_destroyer(events_action = /*events*/ ctx[6].call(null, div2));
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 1024) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[10], dirty, null, null);
+					}
 				}
 
 				if (action_slot) {
-					action_slot.m(div1, null);
-				}
-
-				events_action = /*events*/ ctx[6].call(null, div2) || ({});
-				current = true;
-			},
-			p: function update(ctx, dirty) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 2048) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[11], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[11], dirty, null));
-				}
-
-				if (!action_slot) {
-					const button_changes = {};
-
-					if (dirty & /*$$scope*/ 2048) {
-						button_changes.$$scope = { dirty, ctx };
+					if (action_slot.p && dirty & /*$$scope*/ 1024) {
+						update_slot(action_slot, action_slot_template, ctx, /*$$scope*/ ctx[10], dirty, get_action_slot_changes, get_action_slot_context);
 					}
-
-					button.$set(button_changes);
-				}
-
-				if (action_slot && action_slot.p && dirty & /*$$scope*/ 2048) {
-					action_slot.p(get_slot_context(action_slot_template, ctx, /*$$scope*/ ctx[11], get_action_slot_context), get_slot_changes(action_slot_template, /*$$scope*/ ctx[11], dirty, get_action_slot_changes));
+				} else {
+					if (action_slot_or_fallback && action_slot_or_fallback.p && dirty & /*visible*/ 1) {
+						action_slot_or_fallback.p(ctx, dirty);
+					}
 				}
 
 				if (!current || dirty & /*className*/ 2 && div2_class_value !== (div2_class_value = "" + (null_to_empty("snackbar " + /*className*/ ctx[1]) + " svelte-1ftyf0y"))) {
@@ -11534,8 +12144,7 @@ var app = (function () {
 			i: function intro(local) {
 				if (current) return;
 				transition_in(default_slot, local);
-				transition_in(button.$$.fragment, local);
-				transition_in(action_slot, local);
+				transition_in(action_slot_or_fallback, local);
 
 				add_render_callback(() => {
 					if (div2_outro) div2_outro.end(1);
@@ -11552,8 +12161,7 @@ var app = (function () {
 			},
 			o: function outro(local) {
 				transition_out(default_slot, local);
-				transition_out(button.$$.fragment, local);
-				transition_out(action_slot, local);
+				transition_out(action_slot_or_fallback, local);
 				if (div2_intro) div2_intro.invalidate();
 
 				div2_outro = create_out_transition(div2, fly, {
@@ -11566,14 +12174,10 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div2);
 				if (default_slot) default_slot.d(detaching);
-
-				if (!action_slot) {
-					destroy_component(button);
-				}
-
-				if (action_slot) action_slot.d(detaching);
+				if (action_slot_or_fallback) action_slot_or_fallback.d(detaching);
 				if (detaching && div2_outro) div2_outro.end();
-				if (events_action && is_function(events_action.destroy)) events_action.destroy();
+				mounted = false;
+				dispose();
 			}
 		};
 
@@ -11615,6 +12219,64 @@ var app = (function () {
 		return block;
 	}
 
+	// (15:23)      
+	function fallback_block$1(ctx) {
+		let button;
+		let current;
+
+		button = new Button({
+				props: {
+					color: "#f50057",
+					$$slots: { default: [create_default_slot$4] },
+					$$scope: { ctx }
+				},
+				$$inline: true
+			});
+
+		button.$on("click", /*click_handler*/ ctx[9]);
+
+		const block = {
+			c: function create() {
+				create_component(button.$$.fragment);
+			},
+			m: function mount(target, anchor) {
+				mount_component(button, target, anchor);
+				current = true;
+			},
+			p: function update(ctx, dirty) {
+				const button_changes = {};
+
+				if (dirty & /*$$scope*/ 1024) {
+					button_changes.$$scope = { dirty, ctx };
+				}
+
+				button.$set(button_changes);
+			},
+			i: function intro(local) {
+				if (current) return;
+				transition_in(button.$$.fragment, local);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(button.$$.fragment, local);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				destroy_component(button, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: fallback_block$1.name,
+			type: "fallback",
+			source: "(15:23)      ",
+			ctx
+		});
+
+		return block;
+	}
+
 	function create_fragment$h(ctx) {
 		let if_block_anchor;
 		let current;
@@ -11637,7 +12299,10 @@ var app = (function () {
 				if (/*visible*/ ctx[0]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*visible*/ 1) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$d(ctx);
 						if_block.c();
@@ -11693,7 +12358,7 @@ var app = (function () {
 
 		onDestroy(() => {
 			clearTimeout(timerId);
-			$$invalidate(8, timerId = undefined);
+			$$invalidate(11, timerId = undefined);
 		});
 
 		const writable_props = ["visible", "class", "style", "bottom", "bg", "color", "timeout"];
@@ -11703,6 +12368,7 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Snackbar", $$slots, ['default','action']);
 		const click_handler = () => $$invalidate(0, visible = false);
 
 		$$self.$set = $$props => {
@@ -11713,21 +12379,25 @@ var app = (function () {
 			if ("bg" in $$props) $$invalidate(4, bg = $$props.bg);
 			if ("color" in $$props) $$invalidate(5, color = $$props.color);
 			if ("timeout" in $$props) $$invalidate(7, timeout = $$props.timeout);
-			if ("$$scope" in $$props) $$invalidate(11, $$scope = $$props.$$scope);
+			if ("$$scope" in $$props) $$invalidate(10, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				visible,
-				className,
-				style,
-				bottom,
-				bg,
-				color,
-				timeout,
-				timerId
-			};
-		};
+		$$self.$capture_state = () => ({
+			onDestroy,
+			fly,
+			current_component,
+			getEventsAction,
+			Button,
+			events,
+			visible,
+			className,
+			style,
+			bottom,
+			bg,
+			color,
+			timeout,
+			timerId
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
@@ -11737,20 +12407,24 @@ var app = (function () {
 			if ("bg" in $$props) $$invalidate(4, bg = $$props.bg);
 			if ("color" in $$props) $$invalidate(5, color = $$props.color);
 			if ("timeout" in $$props) $$invalidate(7, timeout = $$props.timeout);
-			if ("timerId" in $$props) $$invalidate(8, timerId = $$props.timerId);
+			if ("timerId" in $$props) $$invalidate(11, timerId = $$props.timerId);
 		};
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
-			if ($$self.$$.dirty & /*visible, timerId, timeout*/ 385) {
+			if ($$self.$$.dirty & /*visible, timerId, timeout*/ 2177) {
 				 if (visible === true) {
 					clearTimeout(timerId);
-					$$invalidate(8, timerId = undefined);
+					$$invalidate(11, timerId = undefined);
 
 					if (timeout > 0) {
-						$$invalidate(8, timerId = setTimeout(
+						$$invalidate(11, timerId = setTimeout(
 							() => {
 								$$invalidate(0, visible = false);
-								$$invalidate(8, timerId = undefined);
+								$$invalidate(11, timerId = undefined);
 							},
 							timeout * 1000
 						));
@@ -11768,7 +12442,6 @@ var app = (function () {
 			color,
 			events,
 			timeout,
-			timerId,
 			$$slots,
 			click_handler,
 			$$scope
@@ -25934,23 +26607,24 @@ var app = (function () {
 	//# sourceMappingURL=leaflet-src.js.map
 	});
 
-	/* F:\svelte\svelte-leaflet1\src\Map.svelte generated by Svelte v3.16.0 */
-	const file$i = "F:\\svelte\\svelte-leaflet1\\src\\Map.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\Map.svelte generated by Svelte v3.23.2 */
+
+	const file$i = "F:\\myGit\\svelte-leaflet-comp\\src\\Map.svelte";
 
 	function create_fragment$i(ctx) {
 		let div;
 		let current;
+		let mounted;
 		let dispose;
-		const default_slot_template = /*$$slots*/ ctx[6].default;
-		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[5], null);
+		const default_slot_template = /*$$slots*/ ctx[5].default;
+		const default_slot = create_slot(default_slot_template, ctx, /*$$scope*/ ctx[4], null);
 
 		const block = {
 			c: function create() {
 				div = element("div");
 				if (default_slot) default_slot.c();
-				attr_dev(div, "class", "map svelte-16x5tze");
+				attr_dev(div, "class", "map");
 				add_location(div, file$i, 44, 0, 1245);
-				dispose = listen_dev(window, "resize", /*resize*/ ctx[1], false, false, false);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -25962,12 +26636,19 @@ var app = (function () {
 					default_slot.m(div, null);
 				}
 
-				/*div_binding*/ ctx[7](div);
+				/*div_binding*/ ctx[6](div);
 				current = true;
+
+				if (!mounted) {
+					dispose = listen_dev(window, "resize", /*resize*/ ctx[1], false, false, false);
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 32) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[5], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[5], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 16) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[4], dirty, null, null);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -25982,7 +26663,8 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
 				if (default_slot) default_slot.d(detaching);
-				/*div_binding*/ ctx[7](null);
+				/*div_binding*/ ctx[6](null);
+				mounted = false;
 				dispose();
 			}
 		};
@@ -26004,6 +26686,7 @@ var app = (function () {
 		let { center = [47.52685546875001, 44.88701247981298] } = $$props;
 		let { zoom = 6 } = $$props;
 
+		// const headerHeight = getContext ('headerHeight');    
 		onMount(() => {
 			leafletMap = leafletSrc.map(mapContainer, {
 				svgSprite: false,
@@ -26012,10 +26695,18 @@ var app = (function () {
 				zoom
 			});
 
+			// console.log('tilePane', leafletMap._panes.tilePane, leafletMap.getPane('tilePane'));
+			// const {url, attribution} = TileServers['osm.mapnik'];
+			// L.tileLayer(url, {
+			// attribution,            
+			// maxZoom: 18,
+			// id: 'osm.mapnik'
+			// }).addTo(leafletMap);                       
 			resize();
 		});
 
 		const resize = () => {
+			// mapContainer.style.height = `${window.innerHeight - headerHeight}px`;
 			leafletMap.invalidateSize();
 		};
 
@@ -26026,22 +26717,31 @@ var app = (function () {
 		});
 
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Map", $$slots, ['default']);
 
 		function div_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(0, mapContainer = $$value);
+				mapContainer = $$value;
+				$$invalidate(0, mapContainer);
 			});
 		}
 
 		$$self.$set = $$props => {
 			if ("center" in $$props) $$invalidate(2, center = $$props.center);
 			if ("zoom" in $$props) $$invalidate(3, zoom = $$props.zoom);
-			if ("$$scope" in $$props) $$invalidate(5, $$scope = $$props.$$scope);
+			if ("$$scope" in $$props) $$invalidate(4, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return { mapContainer, leafletMap, center, zoom };
-		};
+		$$self.$capture_state = () => ({
+			L: leafletSrc,
+			onMount,
+			getContext,
+			mapContainer,
+			leafletMap,
+			center,
+			zoom,
+			resize
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("mapContainer" in $$props) $$invalidate(0, mapContainer = $$props.mapContainer);
@@ -26050,7 +26750,11 @@ var app = (function () {
 			if ("zoom" in $$props) $$invalidate(3, zoom = $$props.zoom);
 		};
 
-		return [mapContainer, resize, center, zoom, leafletMap, $$scope, $$slots, div_binding];
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [mapContainer, resize, center, zoom, $$scope, $$slots, div_binding];
 	}
 
 	class Map$1 extends SvelteComponentDev {
@@ -26186,8 +26890,8 @@ var app = (function () {
 	    },
 	};
 
-	/* F:\svelte\svelte-leaflet1\src\TileLayer.svelte generated by Svelte v3.16.0 */
-	const file$j = "F:\\svelte\\svelte-leaflet1\\src\\TileLayer.svelte";
+	/* F:\myGit\svelte-leaflet-comp\src\TileLayer.svelte generated by Svelte v3.23.2 */
+	const file$j = "F:\\myGit\\svelte-leaflet-comp\\src\\TileLayer.svelte";
 
 	function create_fragment$j(ctx) {
 		let div;
@@ -26214,8 +26918,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 1) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[0], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[0], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 1) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[0], dirty, null, null);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -26258,20 +26964,20 @@ var app = (function () {
 			});
 		});
 
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<TileLayer> was created with unknown prop '${key}'`);
+		});
+
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("TileLayer", $$slots, ['default']);
 
 		$$self.$set = $$props => {
 			if ("$$scope" in $$props) $$invalidate(0, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {};
-		};
-
-		$$self.$inject_state = $$props => {
-			
-		};
-
+		$$self.$capture_state = () => ({ L: leafletSrc, TileServers, onMount, getContext });
 		return [$$scope, $$slots];
 	}
 
@@ -26378,15 +27084,16 @@ var app = (function () {
 	// FIXME: used only inside Button page for color two buttons
 	const theme = writable('light');
 
-	/* src\components\AppBar.svelte generated by Svelte v3.16.0 */
+	/* src\components\AppBar.svelte generated by Svelte v3.23.2 */
 
 	const { Object: Object_1 } = globals;
 	const file$k = "src\\components\\AppBar.svelte";
 
 	// (2:1) <Button   icon   id="hamburger"   color="inherit"   on:click={() => {    leftPanelVisible = true;   }}  >
 	function create_default_slot_6(ctx) {
+		let icon;
 		let current;
-		const icon = new Icon({ props: { path: menu }, $$inline: true });
+		icon = new Icon({ props: { path: menu }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -26424,9 +27131,10 @@ var app = (function () {
 
 	// (19:1) {#if !legacy}
 	function create_if_block$e(ctx) {
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					icon: true,
 					$$slots: { default: [create_default_slot_5] },
@@ -26435,7 +27143,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button.$on("click", /*click_handler_1*/ ctx[10]);
+		button.$on("click", /*click_handler_1*/ ctx[9]);
 
 		const block = {
 			c: function create() {
@@ -26481,9 +27189,10 @@ var app = (function () {
 
 	// (20:2) <Button icon on:click={() => setTheme($theme === 'dark' ? 'light' : 'dark')}>
 	function create_default_slot_5(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: invertColors },
 				$$inline: true
 			});
@@ -26524,9 +27233,10 @@ var app = (function () {
 
 	// (39:3) <Button icon color="inherit">
 	function create_default_slot_4(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: moreVert },
 				$$inline: true
 			});
@@ -26568,9 +27278,10 @@ var app = (function () {
 	// (38:2) <span slot="activator" style="margin-right: 6px;display:block;">
 	function create_activator_slot(ctx) {
 		let span;
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					icon: true,
 					color: "inherit",
@@ -26717,13 +27428,16 @@ var app = (function () {
 	// (37:1) <Menu style="border-radius: 4px;" origin="top right" dx="4" dy="4">
 	function create_default_slot$5(ctx) {
 		let t0;
+		let menuitem0;
 		let t1;
+		let menuitem1;
 		let t2;
 		let hr;
 		let t3;
+		let menuitem2;
 		let current;
 
-		const menuitem0 = new Menuitem({
+		menuitem0 = new Menuitem({
 				props: {
 					disabled: /*legacy*/ ctx[4],
 					$$slots: { default: [create_default_slot_3] },
@@ -26732,9 +27446,9 @@ var app = (function () {
 				$$inline: true
 			});
 
-		menuitem0.$on("click", /*click_handler_2*/ ctx[11]);
+		menuitem0.$on("click", /*click_handler_2*/ ctx[10]);
 
-		const menuitem1 = new Menuitem({
+		menuitem1 = new Menuitem({
 				props: {
 					ripple: false,
 					title: "Item Menu withowt Ripple",
@@ -26744,9 +27458,9 @@ var app = (function () {
 				$$inline: true
 			});
 
-		menuitem1.$on("click", /*click_handler_3*/ ctx[12]);
+		menuitem1.$on("click", /*click_handler_3*/ ctx[11]);
 
-		const menuitem2 = new Menuitem({
+		menuitem2 = new Menuitem({
 				props: {
 					$$slots: { default: [create_default_slot_1$2] },
 					$$scope: { ctx }
@@ -26754,7 +27468,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		menuitem2.$on("click", /*click_handler_4*/ ctx[13]);
+		menuitem2.$on("click", /*click_handler_4*/ ctx[12]);
 
 		const block = {
 			c: function create() {
@@ -26841,17 +27555,21 @@ var app = (function () {
 
 	function create_fragment$k(ctx) {
 		let div1;
+		let button;
 		let t0;
 		let a0;
+		let icon0;
 		let t1;
 		let div0;
 		let t3;
 		let t4;
 		let a1;
+		let icon1;
 		let t5;
+		let menu_1;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					icon: true,
 					id: "hamburger",
@@ -26862,18 +27580,18 @@ var app = (function () {
 				$$inline: true
 			});
 
-		button.$on("click", /*click_handler*/ ctx[9]);
-		const icon0 = new Icon({ props: { path: home }, $$inline: true });
+		button.$on("click", /*click_handler*/ ctx[8]);
+		icon0 = new Icon({ props: { path: home }, $$inline: true });
 		let if_block = !/*legacy*/ ctx[4] && create_if_block$e(ctx);
 
-		const icon1 = new Icon({
+		icon1 = new Icon({
 				props: {
 					path: "M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577\n\t\t\t0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633\n\t\t\t17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809\n\t\t\t1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93\n\t\t\t0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267\n\t\t\t1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24\n\t\t\t2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81\n\t\t\t2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24\n\t\t\t12.297c0-6.627-5.373-12-12-12"
 				},
 				$$inline: true
 			});
 
-		const menu_1 = new Menu({
+		menu_1 = new Menu({
 				props: {
 					style: "border-radius: 4px;",
 					origin: "top right",
@@ -26936,7 +27654,7 @@ var app = (function () {
 				mount_component(icon1, a1, null);
 				append_dev(div1, t5);
 				mount_component(menu_1, div1, null);
-				/*div1_binding*/ ctx[14](div1);
+				/*div1_binding*/ ctx[13](div1);
 				current = true;
 			},
 			p: function update(ctx, [dirty]) {
@@ -26951,7 +27669,10 @@ var app = (function () {
 				if (!/*legacy*/ ctx[4]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*legacy*/ 16) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$e(ctx);
 						if_block.c();
@@ -27000,7 +27721,7 @@ var app = (function () {
 				if (if_block) if_block.d();
 				destroy_component(icon1);
 				destroy_component(menu_1);
-				/*div1_binding*/ ctx[14](null);
+				/*div1_binding*/ ctx[13](null);
 			}
 		};
 
@@ -27048,7 +27769,7 @@ var app = (function () {
 				mql.matches && setTheme("dark");
 			} catch(err) {
 				
-			}
+			} // eslint-disable-line
 		});
 
 		function setTheme(name) {
@@ -27068,6 +27789,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<AppBar> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("AppBar", $$slots, []);
+
 		const click_handler = () => {
 			$$invalidate(0, leftPanelVisible = true);
 		};
@@ -27082,7 +27806,8 @@ var app = (function () {
 
 		function div1_binding($$value) {
 			binding_callbacks[$$value ? "unshift" : "push"](() => {
-				$$invalidate(3, el = $$value);
+				el = $$value;
+				($$invalidate(3, el), $$invalidate(7, fade));
 			});
 		}
 
@@ -27093,17 +27818,27 @@ var app = (function () {
 			if ("loginDialogVisible" in $$props) $$invalidate(2, loginDialogVisible = $$props.loginDialogVisible);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				fade,
-				leftPanelVisible,
-				rightPanelVisible,
-				loginDialogVisible,
-				el,
-				legacy,
-				$theme
-			};
-		};
+		$$self.$capture_state = () => ({
+			fade,
+			leftPanelVisible,
+			rightPanelVisible,
+			loginDialogVisible,
+			onMount,
+			Button,
+			Icon,
+			Menu,
+			Menuitem,
+			home,
+			menu,
+			invertColors,
+			moreVert,
+			theme,
+			el,
+			legacy,
+			darkTheme,
+			setTheme,
+			$theme
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("fade" in $$props) $$invalidate(7, fade = $$props.fade);
@@ -27112,8 +27847,11 @@ var app = (function () {
 			if ("loginDialogVisible" in $$props) $$invalidate(2, loginDialogVisible = $$props.loginDialogVisible);
 			if ("el" in $$props) $$invalidate(3, el = $$props.el);
 			if ("legacy" in $$props) $$invalidate(4, legacy = $$props.legacy);
-			if ("$theme" in $$props) theme.set($theme = $$props.$theme);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*el, fade*/ 136) {
@@ -27134,7 +27872,6 @@ var app = (function () {
 			$theme,
 			setTheme,
 			fade,
-			darkTheme,
 			click_handler,
 			click_handler_1,
 			click_handler_2,
@@ -27196,7 +27933,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\nav\NavItem.svelte generated by Svelte v3.16.0 */
+	/* src\components\nav\NavItem.svelte generated by Svelte v3.23.2 */
 
 	const file$l = "src\\components\\nav\\NavItem.svelte";
 
@@ -27315,15 +28052,16 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<NavItem> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("NavItem", $$slots, []);
+
 		$$self.$set = $$props => {
 			if ("path" in $$props) $$invalidate(0, path = $$props.path);
 			if ("name" in $$props) $$invalidate(1, name = $$props.name);
 			if ("active" in $$props) $$invalidate(2, active = $$props.active);
 		};
 
-		$$self.$capture_state = () => {
-			return { path, name, active, level };
-		};
+		$$self.$capture_state = () => ({ path, name, active, level });
 
 		$$self.$inject_state = $$props => {
 			if ("path" in $$props) $$invalidate(0, path = $$props.path);
@@ -27333,6 +28071,10 @@ var app = (function () {
 		};
 
 		let level;
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*path*/ 1) {
@@ -27356,7 +28098,7 @@ var app = (function () {
 			});
 
 			const { ctx } = this.$$;
-			const props = options.props || ({});
+			const props = options.props || {};
 
 			if (/*path*/ ctx[0] === undefined && !("path" in props)) {
 				console.warn("<NavItem> was created without expected prop 'path'");
@@ -27392,7 +28134,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\nav\Nav.svelte generated by Svelte v3.16.0 */
+	/* src\components\nav\Nav.svelte generated by Svelte v3.23.2 */
 	const file$m = "src\\components\\nav\\Nav.svelte";
 
 	function get_each_context$3(ctx, list, i) {
@@ -27404,9 +28146,10 @@ var app = (function () {
 
 	// (2:1) {#each routes as { path, name }}
 	function create_each_block$3(ctx) {
+		let navitem;
 		let current;
 
-		const navitem = new NavItem({
+		navitem = new NavItem({
 				props: {
 					path: /*path*/ ctx[3],
 					name: /*name*/ ctx[4],
@@ -27458,8 +28201,10 @@ var app = (function () {
 	function create_fragment$m(ctx) {
 		let nav;
 		let current;
+		let mounted;
 		let dispose;
 		let each_value = /*routes*/ ctx[0];
+		validate_each_argument(each_value);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value.length; i += 1) {
@@ -27480,7 +28225,6 @@ var app = (function () {
 
 				attr_dev(nav, "class", "svelte-143rmkk");
 				add_location(nav, file$m, 0, 0, 0);
-				dispose = listen_dev(nav, "click", /*click_handler*/ ctx[2], false, false, false);
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -27493,10 +28237,16 @@ var app = (function () {
 				}
 
 				current = true;
+
+				if (!mounted) {
+					dispose = listen_dev(nav, "click", /*click_handler*/ ctx[2], false, false, false);
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if (dirty & /*routes, currentPath*/ 3) {
 					each_value = /*routes*/ ctx[0];
+					validate_each_argument(each_value);
 					let i;
 
 					for (i = 0; i < each_value.length; i += 1) {
@@ -27543,6 +28293,7 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(nav);
 				destroy_each(each_blocks, detaching);
+				mounted = false;
 				dispose();
 			}
 		};
@@ -27567,6 +28318,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Nav> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Nav", $$slots, []);
+
 		function click_handler(event) {
 			bubble($$self, event);
 		}
@@ -27576,14 +28330,16 @@ var app = (function () {
 			if ("currentPath" in $$props) $$invalidate(1, currentPath = $$props.currentPath);
 		};
 
-		$$self.$capture_state = () => {
-			return { routes, currentPath };
-		};
+		$$self.$capture_state = () => ({ routes, currentPath, NavItem });
 
 		$$self.$inject_state = $$props => {
 			if ("routes" in $$props) $$invalidate(0, routes = $$props.routes);
 			if ("currentPath" in $$props) $$invalidate(1, currentPath = $$props.currentPath);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [routes, currentPath, click_handler];
 	}
@@ -27618,14 +28374,15 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\LeftPanel.svelte generated by Svelte v3.16.0 */
+	/* src\components\LeftPanel.svelte generated by Svelte v3.23.2 */
 	const file$n = "src\\components\\LeftPanel.svelte";
 
 	// (3:2) <Button    icon    color="inherit"    on:click={() => {     visible = false;    }}   >
 	function create_default_slot_1$3(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: arrowBack },
 				$$inline: true
 			});
@@ -27667,13 +28424,15 @@ var app = (function () {
 	// (1:0) <Sidepanel bind:visible disableScroll>
 	function create_default_slot$6(ctx) {
 		let div0;
+		let button;
 		let t0;
 		let span;
 		let t2;
 		let div1;
+		let nav;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					icon: true,
 					color: "inherit",
@@ -27685,7 +28444,7 @@ var app = (function () {
 
 		button.$on("click", /*click_handler*/ ctx[3]);
 
-		const nav = new Nav({
+		nav = new Nav({
 				props: {
 					routes: /*sitenav*/ ctx[2],
 					currentPath: /*currentPath*/ ctx[1]
@@ -27767,6 +28526,7 @@ var app = (function () {
 	}
 
 	function create_fragment$n(ctx) {
+		let sidepanel;
 		let updating_visible;
 		let current;
 
@@ -27784,7 +28544,7 @@ var app = (function () {
 			sidepanel_props.visible = /*visible*/ ctx[0];
 		}
 
-		const sidepanel = new Sidepanel({ props: sidepanel_props, $$inline: true });
+		sidepanel = new Sidepanel({ props: sidepanel_props, $$inline: true });
 		binding_callbacks.push(() => bind(sidepanel, "visible", sidepanel_visible_binding));
 
 		const block = {
@@ -27848,6 +28608,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<LeftPanel> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("LeftPanel", $$slots, []);
+
 		const click_handler = () => {
 			$$invalidate(0, visible = false);
 		};
@@ -27867,15 +28630,26 @@ var app = (function () {
 			if ("sitenav" in $$props) $$invalidate(2, sitenav = $$props.sitenav);
 		};
 
-		$$self.$capture_state = () => {
-			return { visible, currentPath, sitenav };
-		};
+		$$self.$capture_state = () => ({
+			visible,
+			currentPath,
+			sitenav,
+			Button,
+			Icon,
+			Sidepanel,
+			arrowBack,
+			Nav
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 			if ("currentPath" in $$props) $$invalidate(1, currentPath = $$props.currentPath);
 			if ("sitenav" in $$props) $$invalidate(2, sitenav = $$props.sitenav);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			visible,
@@ -27925,7 +28699,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\RightPanel.svelte generated by Svelte v3.16.0 */
+	/* src\components\RightPanel.svelte generated by Svelte v3.23.2 */
 	const file$o = "src\\components\\RightPanel.svelte";
 
 	// (1:0) <Sidepanel right bind:visible>
@@ -27975,6 +28749,7 @@ var app = (function () {
 	}
 
 	function create_fragment$o(ctx) {
+		let sidepanel;
 		let updating_visible;
 		let current;
 
@@ -27992,7 +28767,7 @@ var app = (function () {
 			sidepanel_props.visible = /*visible*/ ctx[0];
 		}
 
-		const sidepanel = new Sidepanel({ props: sidepanel_props, $$inline: true });
+		sidepanel = new Sidepanel({ props: sidepanel_props, $$inline: true });
 		binding_callbacks.push(() => bind(sidepanel, "visible", sidepanel_visible_binding));
 
 		const block = {
@@ -28054,6 +28829,9 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<RightPanel> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("RightPanel", $$slots, []);
+
 		function sidepanel_visible_binding(value) {
 			visible = value;
 			$$invalidate(0, visible);
@@ -28063,13 +28841,15 @@ var app = (function () {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 		};
 
-		$$self.$capture_state = () => {
-			return { visible };
-		};
+		$$self.$capture_state = () => ({ visible, Sidepanel });
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [visible, sidepanel_visible_binding];
 	}
@@ -28096,7 +28876,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\LoginDialog.svelte generated by Svelte v3.16.0 */
+	/* src\components\LoginDialog.svelte generated by Svelte v3.23.2 */
 	const file$p = "src\\components\\LoginDialog.svelte";
 
 	// (2:1) <div slot="title">
@@ -28159,9 +28939,10 @@ var app = (function () {
 	// (22:1) <div slot="actions" class="actions center">
 	function create_actions_slot(ctx) {
 		let div;
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					color: "primary",
 					disabled: true,
@@ -28262,8 +29043,10 @@ var app = (function () {
 	// (1:0) <Dialog width="290" bind:visible>
 	function create_default_slot$8(ctx) {
 		let t0;
+		let textfield0;
 		let updating_value;
 		let t1;
+		let textfield1;
 		let updating_value_1;
 		let t2;
 		let t3;
@@ -28285,11 +29068,11 @@ var app = (function () {
 			textfield0_props.value = /*username*/ ctx[1];
 		}
 
-		const textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
+		textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield0, "value", textfield0_value_binding));
 
-		function textfield1_value_binding(value_1) {
-			/*textfield1_value_binding*/ ctx[4].call(null, value_1);
+		function textfield1_value_binding(value) {
+			/*textfield1_value_binding*/ ctx[4].call(null, value);
 		}
 
 		let textfield1_props = {
@@ -28305,7 +29088,7 @@ var app = (function () {
 			textfield1_props.value = /*password*/ ctx[2];
 		}
 
-		const textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
+		textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield1, "value", textfield1_value_binding));
 
 		const block = {
@@ -28379,6 +29162,7 @@ var app = (function () {
 	}
 
 	function create_fragment$p(ctx) {
+		let dialog;
 		let updating_visible;
 		let current;
 
@@ -28401,7 +29185,7 @@ var app = (function () {
 			dialog_props.visible = /*visible*/ ctx[0];
 		}
 
-		const dialog = new Dialog({ props: dialog_props, $$inline: true });
+		dialog = new Dialog({ props: dialog_props, $$inline: true });
 		binding_callbacks.push(() => bind(dialog, "visible", dialog_visible_binding));
 
 		const block = {
@@ -28465,13 +29249,16 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<LoginDialog> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("LoginDialog", $$slots, []);
+
 		function textfield0_value_binding(value) {
 			username = value;
 			$$invalidate(1, username);
 		}
 
-		function textfield1_value_binding(value_1) {
-			password = value_1;
+		function textfield1_value_binding(value) {
+			password = value;
 			$$invalidate(2, password);
 		}
 
@@ -28486,15 +29273,24 @@ var app = (function () {
 			if ("password" in $$props) $$invalidate(2, password = $$props.password);
 		};
 
-		$$self.$capture_state = () => {
-			return { visible, username, password };
-		};
+		$$self.$capture_state = () => ({
+			visible,
+			username,
+			password,
+			Dialog,
+			Textfield,
+			Button
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 			if ("username" in $$props) $$invalidate(1, username = $$props.username);
 			if ("password" in $$props) $$invalidate(2, password = $$props.password);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			visible,
@@ -28550,7 +29346,7 @@ var app = (function () {
 
 	var byExample = "<h3 id=\"get-started-with-an-example\">Get started with an example</h3>\n<p>Clone repo <a href=\"https://github.com/vikignt/svelte-ui.git\">vikignt/svelte-ui</a></p>\n<pre><code class=\"language-bash\">git <span class=\"hljs-built_in\">clone</span> https://github.com/vikignt/svelte-ui.git</code></pre>\n<p>Then explore the <strong>example</strong></p>\n<pre><code class=\"language-bash\"><span class=\"hljs-built_in\">cd</span> svelte-ui/example\nnpm install\nnpm run dev</code></pre>\n<p>Navigate to <a href=\"http://localhost:5000\">localhost:5000</a></p>\n";
 
-	/* src\pages\home\Home.svelte generated by Svelte v3.16.0 */
+	/* src\pages\home\Home.svelte generated by Svelte v3.23.2 */
 	const file$q = "src\\pages\\home\\Home.svelte";
 
 	function create_fragment$q(ctx) {
@@ -28585,9 +29381,9 @@ var app = (function () {
 				add_location(p1, file$q, 4, 1, 53);
 				attr_dev(div, "class", "warning svelte-1dpkrol");
 				add_location(div, file$q, 0, 0, 0);
-				html_tag = new HtmlTag(introduction, t4);
-				html_tag_1 = new HtmlTag(quickStart, t5);
-				html_tag_2 = new HtmlTag(byExample, null);
+				html_tag = new HtmlTag(t4);
+				html_tag_1 = new HtmlTag(t5);
+				html_tag_2 = new HtmlTag(null);
 				attr_dev(section, "class", "svelte-1dpkrol");
 				add_location(section, file$q, 7, 0, 106);
 			},
@@ -28602,11 +29398,11 @@ var app = (function () {
 				append_dev(div, p1);
 				insert_dev(target, t3, anchor);
 				insert_dev(target, section, anchor);
-				html_tag.m(section);
+				html_tag.m(introduction, section);
 				append_dev(section, t4);
-				html_tag_1.m(section);
+				html_tag_1.m(quickStart, section);
 				append_dev(section, t5);
-				html_tag_2.m(section);
+				html_tag_2.m(byExample, section);
 			},
 			p: noop,
 			i: noop,
@@ -28629,10 +29425,23 @@ var app = (function () {
 		return block;
 	}
 
+	function instance$q($$self, $$props, $$invalidate) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Home> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Home", $$slots, []);
+		$$self.$capture_state = () => ({ introduction, quickStart, byExample });
+		return [];
+	}
+
 	class Home extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, null, create_fragment$q, safe_not_equal, {});
+			init(this, options, instance$q, create_fragment$q, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -28643,7 +29452,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\demo\DemoPanel.svelte generated by Svelte v3.16.0 */
+	/* src\components\demo\DemoPanel.svelte generated by Svelte v3.23.2 */
 	const file$r = "src\\components\\demo\\DemoPanel.svelte";
 	const get_result_slot_changes = dirty => ({});
 	const get_result_slot_context = ctx => ({});
@@ -28654,8 +29463,9 @@ var app = (function () {
 
 	// (4:2) <Button icon title="Code" color="inherit" on:click={() => (codeVisible = !codeVisible)}>
 	function create_default_slot$9(ctx) {
+		let icon;
 		let current;
-		const icon = new Icon({ props: { path: code }, $$inline: true });
+		icon = new Icon({ props: { path: code }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -28694,45 +29504,38 @@ var app = (function () {
 	// (9:1) {#if codeVisible}
 	function create_if_block$g(ctx) {
 		let div;
-		let t;
 		let div_transition;
 		let current;
 		const code_slot_template = /*$$slots*/ ctx[1].code;
 		const code_slot = create_slot(code_slot_template, ctx, /*$$scope*/ ctx[3], get_code_slot_context);
+		const code_slot_or_fallback = code_slot || fallback_block$2(ctx);
 
 		const block = {
 			c: function create() {
 				div = element("div");
-
-				if (!code_slot) {
-					t = text("Not have code yet");
-				}
-
-				if (code_slot) code_slot.c();
+				if (code_slot_or_fallback) code_slot_or_fallback.c();
 				attr_dev(div, "class", "hljs code svelte-1rdh1dq");
 				add_location(div, file$r, 9, 2, 242);
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
 
-				if (!code_slot) {
-					append_dev(div, t);
-				}
-
-				if (code_slot) {
-					code_slot.m(div, null);
+				if (code_slot_or_fallback) {
+					code_slot_or_fallback.m(div, null);
 				}
 
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				if (code_slot && code_slot.p && dirty & /*$$scope*/ 8) {
-					code_slot.p(get_slot_context(code_slot_template, ctx, /*$$scope*/ ctx[3], get_code_slot_context), get_slot_changes(code_slot_template, /*$$scope*/ ctx[3], dirty, get_code_slot_changes));
+				if (code_slot) {
+					if (code_slot.p && dirty & /*$$scope*/ 8) {
+						update_slot(code_slot, code_slot_template, ctx, /*$$scope*/ ctx[3], dirty, get_code_slot_changes, get_code_slot_context);
+					}
 				}
 			},
 			i: function intro(local) {
 				if (current) return;
-				transition_in(code_slot, local);
+				transition_in(code_slot_or_fallback, local);
 
 				add_render_callback(() => {
 					if (!div_transition) div_transition = create_bidirectional_transition(div, slide, {}, true);
@@ -28742,14 +29545,14 @@ var app = (function () {
 				current = true;
 			},
 			o: function outro(local) {
-				transition_out(code_slot, local);
+				transition_out(code_slot_or_fallback, local);
 				if (!div_transition) div_transition = create_bidirectional_transition(div, slide, {}, false);
 				div_transition.run(0);
 				current = false;
 			},
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
-				if (code_slot) code_slot.d(detaching);
+				if (code_slot_or_fallback) code_slot_or_fallback.d(detaching);
 				if (detaching && div_transition) div_transition.end();
 			}
 		};
@@ -28765,11 +29568,39 @@ var app = (function () {
 		return block;
 	}
 
+	// (11:21) Not have code yet
+	function fallback_block$2(ctx) {
+		let t;
+
+		const block = {
+			c: function create() {
+				t = text("Not have code yet");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, t, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) detach_dev(t);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: fallback_block$2.name,
+			type: "fallback",
+			source: "(11:21) Not have code yet",
+			ctx
+		});
+
+		return block;
+	}
+
 	function create_fragment$r(ctx) {
 		let div2;
 		let div0;
 		let span;
 		let t1;
+		let button;
 		let t2;
 		let t3;
 		let div1;
@@ -28777,7 +29608,7 @@ var app = (function () {
 		let t5;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					icon: true,
 					title: "Code",
@@ -28867,7 +29698,10 @@ var app = (function () {
 				if (/*codeVisible*/ ctx[0]) {
 					if (if_block) {
 						if_block.p(ctx, dirty);
-						transition_in(if_block, 1);
+
+						if (dirty & /*codeVisible*/ 1) {
+							transition_in(if_block, 1);
+						}
 					} else {
 						if_block = create_if_block$g(ctx);
 						if_block.c();
@@ -28884,16 +29718,22 @@ var app = (function () {
 					check_outros();
 				}
 
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 8) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[3], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[3], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 8) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[3], dirty, null, null);
+					}
 				}
 
-				if (action_slot && action_slot.p && dirty & /*$$scope*/ 8) {
-					action_slot.p(get_slot_context(action_slot_template, ctx, /*$$scope*/ ctx[3], get_action_slot_context$1), get_slot_changes(action_slot_template, /*$$scope*/ ctx[3], dirty, get_action_slot_changes$1));
+				if (action_slot) {
+					if (action_slot.p && dirty & /*$$scope*/ 8) {
+						update_slot(action_slot, action_slot_template, ctx, /*$$scope*/ ctx[3], dirty, get_action_slot_changes$1, get_action_slot_context$1);
+					}
 				}
 
-				if (result_slot && result_slot.p && dirty & /*$$scope*/ 8) {
-					result_slot.p(get_slot_context(result_slot_template, ctx, /*$$scope*/ ctx[3], get_result_slot_context), get_slot_changes(result_slot_template, /*$$scope*/ ctx[3], dirty, get_result_slot_changes));
+				if (result_slot) {
+					if (result_slot.p && dirty & /*$$scope*/ 8) {
+						update_slot(result_slot, result_slot_template, ctx, /*$$scope*/ ctx[3], dirty, get_result_slot_changes, get_result_slot_context);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -28934,22 +29774,31 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$q($$self, $$props, $$invalidate) {
+	function instance$r($$self, $$props, $$invalidate) {
 		let codeVisible = false;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<DemoPanel> was created with unknown prop '${key}'`);
+		});
+
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("DemoPanel", $$slots, ['code','default','action','result']);
 		const click_handler = () => $$invalidate(0, codeVisible = !codeVisible);
 
 		$$self.$set = $$props => {
 			if ("$$scope" in $$props) $$invalidate(3, $$scope = $$props.$$scope);
 		};
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({ slide, Button, Icon, code, codeVisible });
 
 		$$self.$inject_state = $$props => {
 			if ("codeVisible" in $$props) $$invalidate(0, codeVisible = $$props.codeVisible);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [codeVisible, $$slots, click_handler, $$scope];
 	}
@@ -28957,7 +29806,7 @@ var app = (function () {
 	class DemoPanel extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$q, create_fragment$r, safe_not_equal, {});
+			init(this, options, instance$r, create_fragment$r, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -28968,7 +29817,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\demo\Play.svelte generated by Svelte v3.16.0 */
+	/* src\components\demo\Play.svelte generated by Svelte v3.23.2 */
 
 	const file$s = "src\\components\\demo\\Play.svelte";
 
@@ -29006,8 +29855,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 1) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[0], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[0], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 1) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[0], dirty, null, null);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -29038,19 +29889,18 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$r($$self, $$props, $$invalidate) {
+	function instance$s($$self, $$props, $$invalidate) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Play> was created with unknown prop '${key}'`);
+		});
+
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Play", $$slots, ['default']);
 
 		$$self.$set = $$props => {
 			if ("$$scope" in $$props) $$invalidate(0, $$scope = $$props.$$scope);
-		};
-
-		$$self.$capture_state = () => {
-			return {};
-		};
-
-		$$self.$inject_state = $$props => {
-			
 		};
 
 		return [$$scope, $$slots];
@@ -29059,7 +29909,7 @@ var app = (function () {
 	class Play extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$r, create_fragment$s, safe_not_equal, {});
+			init(this, options, instance$s, create_fragment$s, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -29070,7 +29920,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\demo\Description.svelte generated by Svelte v3.16.0 */
+	/* src\components\demo\Description.svelte generated by Svelte v3.23.2 */
 
 	const file$t = "src\\components\\demo\\Description.svelte";
 
@@ -29108,8 +29958,10 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, [dirty]) {
-				if (default_slot && default_slot.p && dirty & /*$$scope*/ 1) {
-					default_slot.p(get_slot_context(default_slot_template, ctx, /*$$scope*/ ctx[0], null), get_slot_changes(default_slot_template, /*$$scope*/ ctx[0], dirty, null));
+				if (default_slot) {
+					if (default_slot.p && dirty & /*$$scope*/ 1) {
+						update_slot(default_slot, default_slot_template, ctx, /*$$scope*/ ctx[0], dirty, null, null);
+					}
 				}
 			},
 			i: function intro(local) {
@@ -29138,19 +29990,18 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$s($$self, $$props, $$invalidate) {
+	function instance$t($$self, $$props, $$invalidate) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Description> was created with unknown prop '${key}'`);
+		});
+
 		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Description", $$slots, ['default']);
 
 		$$self.$set = $$props => {
 			if ("$$scope" in $$props) $$invalidate(0, $$scope = $$props.$$scope);
-		};
-
-		$$self.$capture_state = () => {
-			return {};
-		};
-
-		$$self.$inject_state = $$props => {
-			
 		};
 
 		return [$$scope, $$slots];
@@ -29159,7 +30010,7 @@ var app = (function () {
 	class Description extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$s, create_fragment$t, safe_not_equal, {});
+			init(this, options, instance$t, create_fragment$t, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -29170,7 +30021,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\demo\Properties.svelte generated by Svelte v3.16.0 */
+	/* src\components\demo\Properties.svelte generated by Svelte v3.23.2 */
 
 	const file$u = "src\\components\\demo\\Properties.svelte";
 
@@ -29282,6 +30133,7 @@ var app = (function () {
 		let th2;
 		let t7;
 		let each_value = /*data*/ ctx[0];
+		validate_each_argument(each_value);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value.length; i += 1) {
@@ -29347,6 +30199,7 @@ var app = (function () {
 			p: function update(ctx, [dirty]) {
 				if (dirty & /*data*/ 1) {
 					each_value = /*data*/ ctx[0];
+					validate_each_argument(each_value);
 					let i;
 
 					for (i = 0; i < each_value.length; i += 1) {
@@ -29389,7 +30242,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$t($$self, $$props, $$invalidate) {
+	function instance$u($$self, $$props, $$invalidate) {
 		let { data = [] } = $$props;
 		const writable_props = ["data"];
 
@@ -29397,17 +30250,22 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Properties> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Properties", $$slots, []);
+
 		$$self.$set = $$props => {
 			if ("data" in $$props) $$invalidate(0, data = $$props.data);
 		};
 
-		$$self.$capture_state = () => {
-			return { data };
-		};
+		$$self.$capture_state = () => ({ data });
 
 		$$self.$inject_state = $$props => {
 			if ("data" in $$props) $$invalidate(0, data = $$props.data);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [data];
 	}
@@ -29415,7 +30273,7 @@ var app = (function () {
 	class Properties extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$t, create_fragment$u, safe_not_equal, { data: 0 });
+			init(this, options, instance$u, create_fragment$u, safe_not_equal, { data: 0 });
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -29447,13 +30305,14 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\map\Map.svelte generated by Svelte v3.16.0 */
+	/* src\pages\map\Map.svelte generated by Svelte v3.23.2 */
 	const file$v = "src\\pages\\map\\Map.svelte";
 
 	// (2:1) <Map   center={[55.751849, 37.595214]}   zoom={8}  >
 	function create_default_slot_2$1(ctx) {
+		let tilelayer;
 		let current;
-		const tilelayer = new TileLayer({ $$inline: true });
+		tilelayer = new TileLayer({ $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -29525,10 +30384,11 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_1$5(ctx) {
+		let map;
 		let t;
 		let current;
 
-		const map = new Map$1({
+		map = new Map$1({
 				props: {
 					center: [55.751849, 37.595214],
 					zoom: 8,
@@ -29589,10 +30449,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -29612,11 +30472,14 @@ var app = (function () {
 	}
 
 	function create_fragment$v(ctx) {
+		let demopanel;
 		let t0;
+		let description;
 		let t1;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$5],
@@ -29627,7 +30490,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$a] },
 					$$scope: { ctx }
@@ -29635,7 +30498,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties },
 				$$inline: true
 			});
@@ -29708,16 +30571,36 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$u($$self) {
+	function instance$v($$self, $$props, $$invalidate) {
 		let visible = false;
+		const writable_props = [];
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Map> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Map", $$slots, []);
+
+		$$self.$capture_state = () => ({
+			Map: Map$1,
+			TileLayer,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$1,
+			doc,
+			properties,
+			visible
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) visible = $$props.visible;
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [];
 	}
@@ -29725,7 +30608,7 @@ var app = (function () {
 	class Map_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$u, create_fragment$v, safe_not_equal, {});
+			init(this, options, instance$v, create_fragment$v, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -29749,14 +30632,15 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\tilelayer\TileLayer.svelte generated by Svelte v3.16.0 */
+	/* src\pages\tilelayer\TileLayer.svelte generated by Svelte v3.23.2 */
 	const file$w = "src\\pages\\tilelayer\\TileLayer.svelte";
 
 	// (2:1) <Map>
 	function create_default_slot_2$2(ctx) {
+		let tilelayer;
 		let current;
 
-		const tilelayer = new TileLayer({
+		tilelayer = new TileLayer({
 				props: {
 					urlTemplate: "",
 					options: { minZoom: 2, errorTileUrl: "" }
@@ -29835,10 +30719,11 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_1$6(ctx) {
+		let map;
 		let t;
 		let current;
 
-		const map = new Map$1({
+		map = new Map$1({
 				props: {
 					$$slots: { default: [create_default_slot_2$2] },
 					$$scope: { ctx }
@@ -29897,10 +30782,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$1, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$1, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -29920,11 +30805,14 @@ var app = (function () {
 	}
 
 	function create_fragment$w(ctx) {
+		let demopanel;
 		let t0;
+		let description;
 		let t1;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$6],
@@ -29935,7 +30823,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$b] },
 					$$scope: { ctx }
@@ -29943,7 +30831,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$1 },
 				$$inline: true
 			});
@@ -30016,10 +30904,34 @@ var app = (function () {
 		return block;
 	}
 
+	function instance$w($$self, $$props, $$invalidate) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<TileLayer> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("TileLayer", $$slots, []);
+
+		$$self.$capture_state = () => ({
+			Map: Map$1,
+			TileLayer,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$2,
+			doc: doc$1,
+			properties: properties$1
+		});
+
+		return [];
+	}
+
 	class TileLayer_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, null, create_fragment$w, safe_not_equal, {});
+			init(this, options, instance$w, create_fragment$w, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -30030,7 +30942,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\icons\svg\approval.svg generated by Svelte v3.16.0 */
+	/* src\components\icons\svg\approval.svg generated by Svelte v3.23.2 */
 
 	const file$x = "src\\components\\icons\\svg\\approval.svg";
 
@@ -30083,10 +30995,22 @@ var app = (function () {
 		return block;
 	}
 
+	function instance$x($$self, $$props) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Approval> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Approval", $$slots, []);
+		return [];
+	}
+
 	class Approval extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, null, create_fragment$x, safe_not_equal, {});
+			init(this, options, instance$x, create_fragment$x, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -30188,7 +31112,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\button\Button.svelte generated by Svelte v3.16.0 */
+	/* src\pages\button\Button.svelte generated by Svelte v3.23.2 */
 	const file$y = "src\\pages\\button\\Button.svelte";
 
 	// (2:1) <Button {...props} color="primary" title="Simple button" on:click={increment}>
@@ -30220,10 +31144,11 @@ var app = (function () {
 
 	// (4:1) <Button {...props} color="accent" title="Button with left icon" on:click={increment}>
 	function create_default_slot_18(ctx) {
+		let icon;
 		let t;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: cartOutline,
 					style: "margin: 0 8px 0 -4px;"
@@ -30271,9 +31196,10 @@ var app = (function () {
 	// (10:1) <Button   {...props}   color={$theme === 'dark' ? '#00bfa5' : '#00796b'}   title="Button with right icon"   on:click={increment}  >
 	function create_default_slot_17(ctx) {
 		let t;
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					path: "M2.01 21L23 12 2.01 3 2 10l15 2-15 2z",
 					style: "margin: 0 -4px 0 8px;"
@@ -30320,8 +31246,9 @@ var app = (function () {
 
 	// (22:1) <Button {...props} icon title="Icon button with icon" on:click={increment}>
 	function create_default_slot_16(ctx) {
+		let icon;
 		let current;
-		const icon = new Icon({ props: { path: search }, $$inline: true });
+		icon = new Icon({ props: { path: search }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -30386,6 +31313,7 @@ var app = (function () {
 
 	// (37:2) <Icon>
 	function create_default_slot_14(ctx) {
+		let switch_instance;
 		let switch_instance_anchor;
 		let current;
 		var switch_value = Approval;
@@ -30395,7 +31323,7 @@ var app = (function () {
 		}
 
 		if (switch_value) {
-			var switch_instance = new switch_value(switch_props());
+			switch_instance = new switch_value(switch_props());
 		}
 
 		const block = {
@@ -30462,9 +31390,10 @@ var app = (function () {
 
 	// (30:1) <Button   {...props}   icon   color="#5c9122"   title="Icon button with multicolor icon"   on:click={increment}  >
 	function create_default_slot_13(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: {
 					$$slots: { default: [create_default_slot_14] },
 					$$scope: { ctx }
@@ -30597,11 +31526,17 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_12(ctx) {
+		let button0;
 		let t0;
+		let button1;
 		let t1;
+		let button2;
 		let t2;
+		let button3;
 		let t3;
+		let button4;
 		let t4;
+		let button5;
 		let t5;
 		let t6;
 		let current;
@@ -30616,7 +31551,7 @@ var app = (function () {
 			button0_props = assign(button0_props, button0_spread_levels[i]);
 		}
 
-		const button0 = new Button({ props: button0_props, $$inline: true });
+		button0 = new Button({ props: button0_props, $$inline: true });
 		button0.$on("click", /*increment*/ ctx[4]);
 		const button1_spread_levels = [/*props*/ ctx[2], { color: "accent" }, { title: "Button with left icon" }];
 
@@ -30629,7 +31564,7 @@ var app = (function () {
 			button1_props = assign(button1_props, button1_spread_levels[i]);
 		}
 
-		const button1 = new Button({ props: button1_props, $$inline: true });
+		button1 = new Button({ props: button1_props, $$inline: true });
 		button1.$on("click", /*increment*/ ctx[4]);
 
 		const button2_spread_levels = [
@@ -30649,7 +31584,7 @@ var app = (function () {
 			button2_props = assign(button2_props, button2_spread_levels[i]);
 		}
 
-		const button2 = new Button({ props: button2_props, $$inline: true });
+		button2 = new Button({ props: button2_props, $$inline: true });
 		button2.$on("click", /*increment*/ ctx[4]);
 		const button3_spread_levels = [/*props*/ ctx[2], { icon: true }, { title: "Icon button with icon" }];
 
@@ -30662,7 +31597,7 @@ var app = (function () {
 			button3_props = assign(button3_props, button3_spread_levels[i]);
 		}
 
-		const button3 = new Button({ props: button3_props, $$inline: true });
+		button3 = new Button({ props: button3_props, $$inline: true });
 		button3.$on("click", /*increment*/ ctx[4]);
 
 		const button4_spread_levels = [
@@ -30681,7 +31616,7 @@ var app = (function () {
 			button4_props = assign(button4_props, button4_spread_levels[i]);
 		}
 
-		const button4 = new Button({ props: button4_props, $$inline: true });
+		button4 = new Button({ props: button4_props, $$inline: true });
 		button4.$on("click", /*increment*/ ctx[4]);
 
 		const button5_spread_levels = [
@@ -30702,7 +31637,7 @@ var app = (function () {
 			button5_props = assign(button5_props, button5_spread_levels[i]);
 		}
 
-		const button5 = new Button({ props: button5_props, $$inline: true });
+		button5 = new Button({ props: button5_props, $$inline: true });
 		button5.$on("click", /*increment*/ ctx[4]);
 
 		const block = {
@@ -30738,7 +31673,7 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				const button0_changes = dirty & /*props*/ 4
+				const button0_changes = (dirty & /*props*/ 4)
 				? get_spread_update(button0_spread_levels, [
 						get_spread_object(/*props*/ ctx[2]),
 						button0_spread_levels[1],
@@ -30752,7 +31687,7 @@ var app = (function () {
 
 				button0.$set(button0_changes);
 
-				const button1_changes = dirty & /*props*/ 4
+				const button1_changes = (dirty & /*props*/ 4)
 				? get_spread_update(button1_spread_levels, [
 						get_spread_object(/*props*/ ctx[2]),
 						button1_spread_levels[1],
@@ -30766,12 +31701,12 @@ var app = (function () {
 
 				button1.$set(button1_changes);
 
-				const button2_changes = dirty & /*props, $theme*/ 12
+				const button2_changes = (dirty & /*props, $theme*/ 12)
 				? get_spread_update(button2_spread_levels, [
 						dirty & /*props*/ 4 && get_spread_object(/*props*/ ctx[2]),
-						dirty & /*$theme*/ 8 && ({
+						dirty & /*$theme*/ 8 && {
 							color: /*$theme*/ ctx[3] === "dark" ? "#00bfa5" : "#00796b"
-						}),
+						},
 						button2_spread_levels[2]
 					])
 				: {};
@@ -30782,7 +31717,7 @@ var app = (function () {
 
 				button2.$set(button2_changes);
 
-				const button3_changes = dirty & /*props*/ 4
+				const button3_changes = (dirty & /*props*/ 4)
 				? get_spread_update(button3_spread_levels, [
 						get_spread_object(/*props*/ ctx[2]),
 						button3_spread_levels[1],
@@ -30796,7 +31731,7 @@ var app = (function () {
 
 				button3.$set(button3_changes);
 
-				const button4_changes = dirty & /*props*/ 4
+				const button4_changes = (dirty & /*props*/ 4)
 				? get_spread_update(button4_spread_levels, [
 						get_spread_object(/*props*/ ctx[2]),
 						button4_spread_levels[1],
@@ -30811,7 +31746,7 @@ var app = (function () {
 
 				button4.$set(button4_changes);
 
-				const button5_changes = dirty & /*props*/ 4
+				const button5_changes = (dirty & /*props*/ 4)
 				? get_spread_update(button5_spread_levels, [
 						get_spread_object(/*props*/ ctx[2]),
 						button5_spread_levels[1],
@@ -31149,27 +32084,37 @@ var app = (function () {
 	// (55:0) <Play>
 	function create_default_slot_1$7(ctx) {
 		let div0;
+		let radio0;
 		let updating_group;
 		let t0;
+		let radio1;
 		let updating_group_1;
 		let t1;
+		let radio2;
 		let updating_group_2;
 		let t2;
+		let radio3;
 		let updating_group_3;
 		let t3;
 		let span;
 		let t5;
 		let div1;
+		let checkbox0;
 		let updating_checked;
 		let t6;
+		let checkbox1;
 		let updating_checked_1;
 		let t7;
+		let checkbox2;
 		let updating_checked_2;
 		let t8;
+		let checkbox3;
 		let updating_checked_3;
 		let t9;
+		let checkbox4;
 		let updating_checked_4;
 		let t10;
+		let checkbox5;
 		let updating_checked_5;
 		let current;
 
@@ -31188,11 +32133,11 @@ var app = (function () {
 			radio0_props.group = /*type*/ ctx[1];
 		}
 
-		const radio0 = new Radio({ props: radio0_props, $$inline: true });
+		radio0 = new Radio({ props: radio0_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio0, "group", radio0_group_binding));
 
-		function radio1_group_binding(value_1) {
-			/*radio1_group_binding*/ ctx[6].call(null, value_1);
+		function radio1_group_binding(value) {
+			/*radio1_group_binding*/ ctx[6].call(null, value);
 		}
 
 		let radio1_props = {
@@ -31205,11 +32150,11 @@ var app = (function () {
 			radio1_props.group = /*type*/ ctx[1];
 		}
 
-		const radio1 = new Radio({ props: radio1_props, $$inline: true });
+		radio1 = new Radio({ props: radio1_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio1, "group", radio1_group_binding));
 
-		function radio2_group_binding(value_2) {
-			/*radio2_group_binding*/ ctx[7].call(null, value_2);
+		function radio2_group_binding(value) {
+			/*radio2_group_binding*/ ctx[7].call(null, value);
 		}
 
 		let radio2_props = {
@@ -31222,11 +32167,11 @@ var app = (function () {
 			radio2_props.group = /*type*/ ctx[1];
 		}
 
-		const radio2 = new Radio({ props: radio2_props, $$inline: true });
+		radio2 = new Radio({ props: radio2_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio2, "group", radio2_group_binding));
 
-		function radio3_group_binding(value_3) {
-			/*radio3_group_binding*/ ctx[8].call(null, value_3);
+		function radio3_group_binding(value) {
+			/*radio3_group_binding*/ ctx[8].call(null, value);
 		}
 
 		let radio3_props = {
@@ -31239,11 +32184,11 @@ var app = (function () {
 			radio3_props.group = /*type*/ ctx[1];
 		}
 
-		const radio3 = new Radio({ props: radio3_props, $$inline: true });
+		radio3 = new Radio({ props: radio3_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio3, "group", radio3_group_binding));
 
-		function checkbox0_checked_binding(value_4) {
-			/*checkbox0_checked_binding*/ ctx[9].call(null, value_4);
+		function checkbox0_checked_binding(value) {
+			/*checkbox0_checked_binding*/ ctx[9].call(null, value);
 		}
 
 		let checkbox0_props = {
@@ -31255,11 +32200,11 @@ var app = (function () {
 			checkbox0_props.checked = /*props*/ ctx[2].shaped;
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_5) {
-			/*checkbox1_checked_binding*/ ctx[10].call(null, value_5);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[10].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -31271,11 +32216,11 @@ var app = (function () {
 			checkbox1_props.checked = /*props*/ ctx[2].fab;
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_6) {
-			/*checkbox2_checked_binding*/ ctx[11].call(null, value_6);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[11].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -31287,11 +32232,11 @@ var app = (function () {
 			checkbox2_props.checked = /*props*/ ctx[2].dense;
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
-		function checkbox3_checked_binding(value_7) {
-			/*checkbox3_checked_binding*/ ctx[12].call(null, value_7);
+		function checkbox3_checked_binding(value) {
+			/*checkbox3_checked_binding*/ ctx[12].call(null, value);
 		}
 
 		let checkbox3_props = {
@@ -31303,11 +32248,11 @@ var app = (function () {
 			checkbox3_props.checked = /*props*/ ctx[2].ripple;
 		}
 
-		const checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
+		checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox3, "checked", checkbox3_checked_binding));
 
-		function checkbox4_checked_binding(value_8) {
-			/*checkbox4_checked_binding*/ ctx[13].call(null, value_8);
+		function checkbox4_checked_binding(value) {
+			/*checkbox4_checked_binding*/ ctx[13].call(null, value);
 		}
 
 		let checkbox4_props = {
@@ -31319,11 +32264,11 @@ var app = (function () {
 			checkbox4_props.checked = /*props*/ ctx[2].disabled;
 		}
 
-		const checkbox4 = new Checkbox({ props: checkbox4_props, $$inline: true });
+		checkbox4 = new Checkbox({ props: checkbox4_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox4, "checked", checkbox4_checked_binding));
 
-		function checkbox5_checked_binding(value_9) {
-			/*checkbox5_checked_binding*/ ctx[14].call(null, value_9);
+		function checkbox5_checked_binding(value) {
+			/*checkbox5_checked_binding*/ ctx[14].call(null, value);
 		}
 
 		let checkbox5_props = {
@@ -31335,7 +32280,7 @@ var app = (function () {
 			checkbox5_props.checked = /*props*/ ctx[2].fullWidth;
 		}
 
-		const checkbox5 = new Checkbox({ props: checkbox5_props, $$inline: true });
+		checkbox5 = new Checkbox({ props: checkbox5_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox5, "checked", checkbox5_checked_binding));
 
 		const block = {
@@ -31589,10 +32534,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$2, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$2, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -31612,12 +32557,16 @@ var app = (function () {
 	}
 
 	function create_fragment$y(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_12],
@@ -31629,7 +32578,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$7] },
 					$$scope: { ctx }
@@ -31637,7 +32586,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$c] },
 					$$scope: { ctx }
@@ -31645,7 +32594,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$2 },
 				$$inline: true
 			});
@@ -31733,7 +32682,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$v($$self, $$props, $$invalidate) {
+	function instance$y($$self, $$props, $$invalidate) {
 		let $theme;
 		validate_store(theme, "theme");
 		component_subscribe($$self, theme, $$value => $$invalidate(3, $theme = $$value));
@@ -31756,66 +32705,97 @@ var app = (function () {
 			$$invalidate(0, counter += 1);
 		}
 
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Button> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Button", $$slots, []);
+
 		function radio0_group_binding(value) {
 			type = value;
 			$$invalidate(1, type);
 		}
 
-		function radio1_group_binding(value_1) {
-			type = value_1;
+		function radio1_group_binding(value) {
+			type = value;
 			$$invalidate(1, type);
 		}
 
-		function radio2_group_binding(value_2) {
-			type = value_2;
+		function radio2_group_binding(value) {
+			type = value;
 			$$invalidate(1, type);
 		}
 
-		function radio3_group_binding(value_3) {
-			type = value_3;
+		function radio3_group_binding(value) {
+			type = value;
 			$$invalidate(1, type);
 		}
 
-		function checkbox0_checked_binding(value_4) {
-			props.shaped = value_4;
+		function checkbox0_checked_binding(value) {
+			props.shaped = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		function checkbox1_checked_binding(value_5) {
-			props.fab = value_5;
+		function checkbox1_checked_binding(value) {
+			props.fab = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		function checkbox2_checked_binding(value_6) {
-			props.dense = value_6;
+		function checkbox2_checked_binding(value) {
+			props.dense = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		function checkbox3_checked_binding(value_7) {
-			props.ripple = value_7;
+		function checkbox3_checked_binding(value) {
+			props.ripple = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		function checkbox4_checked_binding(value_8) {
-			props.disabled = value_8;
+		function checkbox4_checked_binding(value) {
+			props.disabled = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		function checkbox5_checked_binding(value_9) {
-			props.fullWidth = value_9;
+		function checkbox5_checked_binding(value) {
+			props.fullWidth = value;
 			($$invalidate(2, props), $$invalidate(1, type));
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			Checkbox,
+			Icon,
+			Radio,
+			cartOutline,
+			search,
+			approval: Approval,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			theme,
+			code: code$3,
+			doc: doc$2,
+			properties: properties$2,
+			counter,
+			type,
+			props,
+			increment,
+			$theme
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("counter" in $$props) $$invalidate(0, counter = $$props.counter);
 			if ("type" in $$props) $$invalidate(1, type = $$props.type);
 			if ("props" in $$props) $$invalidate(2, props = $$props.props);
-			if ("$theme" in $$props) theme.set($theme = $$props.$theme);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*type*/ 2) {
@@ -31853,7 +32833,7 @@ var app = (function () {
 	class Button_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$v, create_fragment$y, safe_not_equal, {});
+			init(this, options, instance$y, create_fragment$y, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -31868,7 +32848,9 @@ var app = (function () {
 
 	var doc$3 = "<p>Simple wrapper components</p>\n";
 
-	/* src\pages\button-group\ButtonGroup.svelte generated by Svelte v3.16.0 */
+	/* src\pages\button-group\ButtonGroup.svelte generated by Svelte v3.23.2 */
+
+	const { Object: Object_1$1 } = globals;
 	const file$z = "src\\pages\\button-group\\ButtonGroup.svelte";
 
 	// (4:3) <Button {...props} on:click={increment}>
@@ -31954,8 +32936,11 @@ var app = (function () {
 
 	// (3:2) <ButtonGroup color="primary">
 	function create_default_slot_18$1(ctx) {
+		let button0;
 		let t0;
+		let button1;
 		let t1;
+		let button2;
 		let current;
 		const button0_spread_levels = [/*props*/ ctx[5]];
 
@@ -31968,7 +32953,7 @@ var app = (function () {
 			button0_props = assign(button0_props, button0_spread_levels[i]);
 		}
 
-		const button0 = new Button({ props: button0_props, $$inline: true });
+		button0 = new Button({ props: button0_props, $$inline: true });
 		button0.$on("click", /*increment*/ ctx[6]);
 		const button1_spread_levels = [/*props*/ ctx[5]];
 
@@ -31981,7 +32966,7 @@ var app = (function () {
 			button1_props = assign(button1_props, button1_spread_levels[i]);
 		}
 
-		const button1 = new Button({ props: button1_props, $$inline: true });
+		button1 = new Button({ props: button1_props, $$inline: true });
 		button1.$on("click", /*increment*/ ctx[6]);
 		const button2_spread_levels = [/*props*/ ctx[5]];
 
@@ -31994,7 +32979,7 @@ var app = (function () {
 			button2_props = assign(button2_props, button2_spread_levels[i]);
 		}
 
-		const button2 = new Button({ props: button2_props, $$inline: true });
+		button2 = new Button({ props: button2_props, $$inline: true });
 		button2.$on("click", /*increment*/ ctx[6]);
 
 		const block = {
@@ -32014,7 +32999,7 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				const button0_changes = dirty & /*props*/ 32
+				const button0_changes = (dirty & /*props*/ 32)
 				? get_spread_update(button0_spread_levels, [get_spread_object(/*props*/ ctx[5])])
 				: {};
 
@@ -32024,7 +33009,7 @@ var app = (function () {
 
 				button0.$set(button0_changes);
 
-				const button1_changes = dirty & /*props*/ 32
+				const button1_changes = (dirty & /*props*/ 32)
 				? get_spread_update(button1_spread_levels, [get_spread_object(/*props*/ ctx[5])])
 				: {};
 
@@ -32034,7 +33019,7 @@ var app = (function () {
 
 				button1.$set(button1_changes);
 
-				const button2_changes = dirty & /*props*/ 32
+				const button2_changes = (dirty & /*props*/ 32)
 				? get_spread_update(button2_spread_levels, [get_spread_object(/*props*/ ctx[5])])
 				: {};
 
@@ -32079,9 +33064,10 @@ var app = (function () {
 
 	// (17:3) <Button     active={justify.left}     toggle     {...props}     on:change={(e) => {      onjustify('left', e.detail);     }}    >
 	function create_default_slot_17$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: alignLeft },
 				$$inline: true
 			});
@@ -32122,9 +33108,10 @@ var app = (function () {
 
 	// (27:3) <Button     active={justify.center}     toggle     {...props}     on:change={(e) => {      onjustify('center', e.detail);     }}    >
 	function create_default_slot_16$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: alignCenter },
 				$$inline: true
 			});
@@ -32165,9 +33152,10 @@ var app = (function () {
 
 	// (37:3) <Button     active={justify.right}     toggle     {...props}     on:change={(e) => {      onjustify('right', e.detail);     }}    >
 	function create_default_slot_15$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: alignRight },
 				$$inline: true
 			});
@@ -32208,9 +33196,10 @@ var app = (function () {
 
 	// (47:3) <Button     active={justify.justify}     toggle     {...props}     on:change={(e) => {      onjustify('justify', e.detail);     }}    >
 	function create_default_slot_14$1(ctx) {
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: alignJustify },
 				$$inline: true
 			});
@@ -32251,8 +33240,9 @@ var app = (function () {
 
 	// (58:3) <Button bind:active={isbold} toggle {...props}>
 	function create_default_slot_13$1(ctx) {
+		let icon;
 		let current;
-		const icon = new Icon({ props: { path: bold }, $$inline: true });
+		icon = new Icon({ props: { path: bold }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -32290,8 +33280,9 @@ var app = (function () {
 
 	// (61:3) <Button bind:active={isitalic} toggle {...props}>
 	function create_default_slot_12$1(ctx) {
+		let icon;
 		let current;
-		const icon = new Icon({ props: { path: italic }, $$inline: true });
+		icon = new Icon({ props: { path: italic }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -32329,12 +33320,18 @@ var app = (function () {
 
 	// (16:2) <ButtonGroup color="accent">
 	function create_default_slot_11$1(ctx) {
+		let button0;
 		let t0;
+		let button1;
 		let t1;
+		let button2;
 		let t2;
+		let button3;
 		let t3;
+		let button4;
 		let updating_active;
 		let t4;
+		let button5;
 		let updating_active_1;
 		let current;
 		const button0_spread_levels = [{ active: /*justify*/ ctx[1].left }, { toggle: true }, /*props*/ ctx[5]];
@@ -32348,7 +33345,7 @@ var app = (function () {
 			button0_props = assign(button0_props, button0_spread_levels[i]);
 		}
 
-		const button0 = new Button({ props: button0_props, $$inline: true });
+		button0 = new Button({ props: button0_props, $$inline: true });
 		button0.$on("change", /*change_handler*/ ctx[8]);
 		const button1_spread_levels = [{ active: /*justify*/ ctx[1].center }, { toggle: true }, /*props*/ ctx[5]];
 
@@ -32361,7 +33358,7 @@ var app = (function () {
 			button1_props = assign(button1_props, button1_spread_levels[i]);
 		}
 
-		const button1 = new Button({ props: button1_props, $$inline: true });
+		button1 = new Button({ props: button1_props, $$inline: true });
 		button1.$on("change", /*change_handler_1*/ ctx[9]);
 		const button2_spread_levels = [{ active: /*justify*/ ctx[1].right }, { toggle: true }, /*props*/ ctx[5]];
 
@@ -32374,7 +33371,7 @@ var app = (function () {
 			button2_props = assign(button2_props, button2_spread_levels[i]);
 		}
 
-		const button2 = new Button({ props: button2_props, $$inline: true });
+		button2 = new Button({ props: button2_props, $$inline: true });
 		button2.$on("change", /*change_handler_2*/ ctx[10]);
 		const button3_spread_levels = [{ active: /*justify*/ ctx[1].justify }, { toggle: true }, /*props*/ ctx[5]];
 
@@ -32387,7 +33384,7 @@ var app = (function () {
 			button3_props = assign(button3_props, button3_spread_levels[i]);
 		}
 
-		const button3 = new Button({ props: button3_props, $$inline: true });
+		button3 = new Button({ props: button3_props, $$inline: true });
 		button3.$on("change", /*change_handler_3*/ ctx[11]);
 		const button4_spread_levels = [{ toggle: true }, /*props*/ ctx[5]];
 
@@ -32408,12 +33405,12 @@ var app = (function () {
 			button4_props.active = /*isbold*/ ctx[2];
 		}
 
-		const button4 = new Button({ props: button4_props, $$inline: true });
+		button4 = new Button({ props: button4_props, $$inline: true });
 		binding_callbacks.push(() => bind(button4, "active", button4_active_binding));
 		const button5_spread_levels = [{ toggle: true }, /*props*/ ctx[5]];
 
-		function button5_active_binding(value_1) {
-			/*button5_active_binding*/ ctx[13].call(null, value_1);
+		function button5_active_binding(value) {
+			/*button5_active_binding*/ ctx[13].call(null, value);
 		}
 
 		let button5_props = {
@@ -32429,7 +33426,7 @@ var app = (function () {
 			button5_props.active = /*isitalic*/ ctx[3];
 		}
 
-		const button5 = new Button({ props: button5_props, $$inline: true });
+		button5 = new Button({ props: button5_props, $$inline: true });
 		binding_callbacks.push(() => bind(button5, "active", button5_active_binding));
 
 		const block = {
@@ -32461,9 +33458,9 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				const button0_changes = dirty & /*justify, props*/ 34
+				const button0_changes = (dirty & /*justify, props*/ 34)
 				? get_spread_update(button0_spread_levels, [
-						dirty & /*justify*/ 2 && ({ active: /*justify*/ ctx[1].left }),
+						dirty & /*justify*/ 2 && { active: /*justify*/ ctx[1].left },
 						button0_spread_levels[1],
 						dirty & /*props*/ 32 && get_spread_object(/*props*/ ctx[5])
 					])
@@ -32475,9 +33472,9 @@ var app = (function () {
 
 				button0.$set(button0_changes);
 
-				const button1_changes = dirty & /*justify, props*/ 34
+				const button1_changes = (dirty & /*justify, props*/ 34)
 				? get_spread_update(button1_spread_levels, [
-						dirty & /*justify*/ 2 && ({ active: /*justify*/ ctx[1].center }),
+						dirty & /*justify*/ 2 && { active: /*justify*/ ctx[1].center },
 						button1_spread_levels[1],
 						dirty & /*props*/ 32 && get_spread_object(/*props*/ ctx[5])
 					])
@@ -32489,9 +33486,9 @@ var app = (function () {
 
 				button1.$set(button1_changes);
 
-				const button2_changes = dirty & /*justify, props*/ 34
+				const button2_changes = (dirty & /*justify, props*/ 34)
 				? get_spread_update(button2_spread_levels, [
-						dirty & /*justify*/ 2 && ({ active: /*justify*/ ctx[1].right }),
+						dirty & /*justify*/ 2 && { active: /*justify*/ ctx[1].right },
 						button2_spread_levels[1],
 						dirty & /*props*/ 32 && get_spread_object(/*props*/ ctx[5])
 					])
@@ -32503,9 +33500,9 @@ var app = (function () {
 
 				button2.$set(button2_changes);
 
-				const button3_changes = dirty & /*justify, props*/ 34
+				const button3_changes = (dirty & /*justify, props*/ 34)
 				? get_spread_update(button3_spread_levels, [
-						dirty & /*justify*/ 2 && ({ active: /*justify*/ ctx[1].justify }),
+						dirty & /*justify*/ 2 && { active: /*justify*/ ctx[1].justify },
 						button3_spread_levels[1],
 						dirty & /*props*/ 32 && get_spread_object(/*props*/ ctx[5])
 					])
@@ -32517,7 +33514,7 @@ var app = (function () {
 
 				button3.$set(button3_changes);
 
-				const button4_changes = dirty & /*props*/ 32
+				const button4_changes = (dirty & /*props*/ 32)
 				? get_spread_update(button4_spread_levels, [button4_spread_levels[0], get_spread_object(/*props*/ ctx[5])])
 				: {};
 
@@ -32533,7 +33530,7 @@ var app = (function () {
 
 				button4.$set(button4_changes);
 
-				const button5_changes = dirty & /*props*/ 32
+				const button5_changes = (dirty & /*props*/ 32)
 				? get_spread_update(button5_spread_levels, [button5_spread_levels[0], get_spread_object(/*props*/ ctx[5])])
 				: {};
 
@@ -32678,6 +33675,7 @@ var app = (function () {
 	// (1:0) <DemoPanel>
 	function create_default_slot_10$1(ctx) {
 		let div0;
+		let buttongroup0;
 		let t0;
 		let div1;
 		let p;
@@ -32685,11 +33683,12 @@ var app = (function () {
 		let code_1;
 		let t3;
 		let t4;
+		let buttongroup1;
 		let t5;
 		let t6;
 		let current;
 
-		const buttongroup0 = new ButtonGroup({
+		buttongroup0 = new ButtonGroup({
 				props: {
 					color: "primary",
 					$$slots: { default: [create_default_slot_18$1] },
@@ -32698,7 +33697,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const buttongroup1 = new ButtonGroup({
+		buttongroup1 = new ButtonGroup({
 				props: {
 					color: "accent",
 					$$slots: { default: [create_default_slot_11$1] },
@@ -33015,23 +34014,31 @@ var app = (function () {
 	// (80:0) <Play>
 	function create_default_slot_1$8(ctx) {
 		let div0;
+		let radio0;
 		let updating_group;
 		let t0;
+		let radio1;
 		let updating_group_1;
 		let t1;
+		let radio2;
 		let updating_group_2;
 		let t2;
+		let radio3;
 		let updating_group_3;
 		let t3;
 		let span;
 		let t5;
 		let div1;
+		let checkbox0;
 		let updating_checked;
 		let t6;
+		let checkbox1;
 		let updating_checked_1;
 		let t7;
+		let checkbox2;
 		let updating_checked_2;
 		let t8;
+		let checkbox3;
 		let updating_checked_3;
 		let current;
 
@@ -33050,11 +34057,11 @@ var app = (function () {
 			radio0_props.group = /*type*/ ctx[4];
 		}
 
-		const radio0 = new Radio({ props: radio0_props, $$inline: true });
+		radio0 = new Radio({ props: radio0_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio0, "group", radio0_group_binding));
 
-		function radio1_group_binding(value_1) {
-			/*radio1_group_binding*/ ctx[15].call(null, value_1);
+		function radio1_group_binding(value) {
+			/*radio1_group_binding*/ ctx[15].call(null, value);
 		}
 
 		let radio1_props = {
@@ -33067,11 +34074,11 @@ var app = (function () {
 			radio1_props.group = /*type*/ ctx[4];
 		}
 
-		const radio1 = new Radio({ props: radio1_props, $$inline: true });
+		radio1 = new Radio({ props: radio1_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio1, "group", radio1_group_binding));
 
-		function radio2_group_binding(value_2) {
-			/*radio2_group_binding*/ ctx[16].call(null, value_2);
+		function radio2_group_binding(value) {
+			/*radio2_group_binding*/ ctx[16].call(null, value);
 		}
 
 		let radio2_props = {
@@ -33084,11 +34091,11 @@ var app = (function () {
 			radio2_props.group = /*type*/ ctx[4];
 		}
 
-		const radio2 = new Radio({ props: radio2_props, $$inline: true });
+		radio2 = new Radio({ props: radio2_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio2, "group", radio2_group_binding));
 
-		function radio3_group_binding(value_3) {
-			/*radio3_group_binding*/ ctx[17].call(null, value_3);
+		function radio3_group_binding(value) {
+			/*radio3_group_binding*/ ctx[17].call(null, value);
 		}
 
 		let radio3_props = {
@@ -33101,11 +34108,11 @@ var app = (function () {
 			radio3_props.group = /*type*/ ctx[4];
 		}
 
-		const radio3 = new Radio({ props: radio3_props, $$inline: true });
+		radio3 = new Radio({ props: radio3_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio3, "group", radio3_group_binding));
 
-		function checkbox0_checked_binding(value_4) {
-			/*checkbox0_checked_binding*/ ctx[18].call(null, value_4);
+		function checkbox0_checked_binding(value) {
+			/*checkbox0_checked_binding*/ ctx[18].call(null, value);
 		}
 
 		let checkbox0_props = {
@@ -33117,11 +34124,11 @@ var app = (function () {
 			checkbox0_props.checked = /*props*/ ctx[5].shaped;
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_5) {
-			/*checkbox1_checked_binding*/ ctx[19].call(null, value_5);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[19].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -33133,11 +34140,11 @@ var app = (function () {
 			checkbox1_props.checked = /*props*/ ctx[5].dense;
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_6) {
-			/*checkbox2_checked_binding*/ ctx[20].call(null, value_6);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[20].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -33149,11 +34156,11 @@ var app = (function () {
 			checkbox2_props.checked = /*props*/ ctx[5].ripple;
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
-		function checkbox3_checked_binding(value_7) {
-			/*checkbox3_checked_binding*/ ctx[21].call(null, value_7);
+		function checkbox3_checked_binding(value) {
+			/*checkbox3_checked_binding*/ ctx[21].call(null, value);
 		}
 
 		let checkbox3_props = {
@@ -33165,7 +34172,7 @@ var app = (function () {
 			checkbox3_props.checked = /*props*/ ctx[5].disabled;
 		}
 
-		const checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
+		checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox3, "checked", checkbox3_checked_binding));
 
 		const block = {
@@ -33379,10 +34386,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$3, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$3, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -33402,11 +34409,14 @@ var app = (function () {
 	}
 
 	function create_fragment$z(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_10$1],
@@ -33418,7 +34428,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$8] },
 					$$scope: { ctx }
@@ -33426,7 +34436,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$d] },
 					$$scope: { ctx }
@@ -33509,7 +34519,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$w($$self, $$props, $$invalidate) {
+	function instance$z($$self, $$props, $$invalidate) {
 		let counter = 0;
 
 		let justify = {
@@ -33543,6 +34553,15 @@ var app = (function () {
 			});
 		}
 
+		const writable_props = [];
+
+		Object_1$1.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<ButtonGroup> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("ButtonGroup", $$slots, []);
+
 		const change_handler = e => {
 			onjustify("left", e.detail);
 		};
@@ -33564,8 +34583,8 @@ var app = (function () {
 			$$invalidate(2, isbold);
 		}
 
-		function button5_active_binding(value_1) {
-			isitalic = value_1;
+		function button5_active_binding(value) {
+			isitalic = value;
 			$$invalidate(3, isitalic);
 		}
 
@@ -33574,44 +34593,67 @@ var app = (function () {
 			$$invalidate(4, type);
 		}
 
-		function radio1_group_binding(value_1) {
-			type = value_1;
+		function radio1_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function radio2_group_binding(value_2) {
-			type = value_2;
+		function radio2_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function radio3_group_binding(value_3) {
-			type = value_3;
+		function radio3_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function checkbox0_checked_binding(value_4) {
-			props.shaped = value_4;
+		function checkbox0_checked_binding(value) {
+			props.shaped = value;
 			($$invalidate(5, props), $$invalidate(4, type));
 		}
 
-		function checkbox1_checked_binding(value_5) {
-			props.dense = value_5;
+		function checkbox1_checked_binding(value) {
+			props.dense = value;
 			($$invalidate(5, props), $$invalidate(4, type));
 		}
 
-		function checkbox2_checked_binding(value_6) {
-			props.ripple = value_6;
+		function checkbox2_checked_binding(value) {
+			props.ripple = value;
 			($$invalidate(5, props), $$invalidate(4, type));
 		}
 
-		function checkbox3_checked_binding(value_7) {
-			props.disabled = value_7;
+		function checkbox3_checked_binding(value) {
+			props.disabled = value;
 			($$invalidate(5, props), $$invalidate(4, type));
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			ButtonGroup,
+			Button,
+			Checkbox,
+			Icon,
+			Radio,
+			alignCenter,
+			alignJustify,
+			alignLeft,
+			alignRight,
+			bold,
+			italic,
+			DemoPanel,
+			Play,
+			Description,
+			code: code$4,
+			doc: doc$3,
+			counter,
+			justify,
+			isbold,
+			isitalic,
+			type,
+			props,
+			increment,
+			onjustify
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("counter" in $$props) $$invalidate(0, counter = $$props.counter);
@@ -33621,6 +34663,10 @@ var app = (function () {
 			if ("type" in $$props) $$invalidate(4, type = $$props.type);
 			if ("props" in $$props) $$invalidate(5, props = $$props.props);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*type*/ 16) {
@@ -33665,7 +34711,7 @@ var app = (function () {
 	class ButtonGroup_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$w, create_fragment$z, safe_not_equal, {});
+			init(this, options, instance$z, create_fragment$z, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -33732,7 +34778,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\checkbox\Checkbox.svelte generated by Svelte v3.16.0 */
+	/* src\pages\checkbox\Checkbox.svelte generated by Svelte v3.23.2 */
 	const file$A = "src\\pages\\checkbox\\Checkbox.svelte";
 
 	// (2:1) <Checkbox {...props} bind:checked bind:indeterminate>
@@ -33861,11 +34907,14 @@ var app = (function () {
 	// (10:1) <div class="action" slot="action">
 	function create_action_slot(ctx) {
 		let div;
+		let button0;
 		let t0;
+		let button1;
 		let t1;
+		let button2;
 		let current;
 
-		const button0 = new Button({
+		button0 = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_8$2] },
@@ -33876,7 +34925,7 @@ var app = (function () {
 
 		button0.$on("click", /*click_handler*/ ctx[6]);
 
-		const button1 = new Button({
+		button1 = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_7$2] },
@@ -33887,7 +34936,7 @@ var app = (function () {
 
 		button1.$on("click", /*click_handler_1*/ ctx[7]);
 
-		const button2 = new Button({
+		button2 = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_6$3] },
@@ -34064,6 +35113,7 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_5$3(ctx) {
+		let checkbox;
 		let updating_checked;
 		let updating_indeterminate;
 		let t0;
@@ -34076,8 +35126,8 @@ var app = (function () {
 			/*checkbox_checked_binding*/ ctx[4].call(null, value);
 		}
 
-		function checkbox_indeterminate_binding(value_1) {
-			/*checkbox_indeterminate_binding*/ ctx[5].call(null, value_1);
+		function checkbox_indeterminate_binding(value) {
+			/*checkbox_indeterminate_binding*/ ctx[5].call(null, value);
 		}
 
 		let checkbox_props = {
@@ -34097,7 +35147,7 @@ var app = (function () {
 			checkbox_props.indeterminate = /*indeterminate*/ ctx[1];
 		}
 
-		const checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
+		checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox, "checked", checkbox_checked_binding));
 		binding_callbacks.push(() => bind(checkbox, "indeterminate", checkbox_indeterminate_binding));
 
@@ -34116,7 +35166,7 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				const checkbox_changes = dirty & /*props*/ 4
+				const checkbox_changes = (dirty & /*props*/ 4)
 				? get_spread_update(checkbox_spread_levels, [get_spread_object(/*props*/ ctx[2])])
 				: {};
 
@@ -34250,10 +35300,13 @@ var app = (function () {
 	// (50:0) <Play>
 	function create_default_slot_1$9(ctx) {
 		let div;
+		let checkbox0;
 		let updating_checked;
 		let t0;
+		let checkbox1;
 		let updating_checked_1;
 		let t1;
+		let checkbox2;
 		let updating_checked_2;
 		let current;
 
@@ -34270,11 +35323,11 @@ var app = (function () {
 			checkbox0_props.checked = /*props*/ ctx[2].right;
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_1) {
-			/*checkbox1_checked_binding*/ ctx[10].call(null, value_1);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[10].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -34287,11 +35340,11 @@ var app = (function () {
 			checkbox1_props.checked = /*props*/ ctx[2].ripple;
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_2) {
-			/*checkbox2_checked_binding*/ ctx[11].call(null, value_2);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[11].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -34303,7 +35356,7 @@ var app = (function () {
 			checkbox2_props.checked = /*props*/ ctx[2].disabled;
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
 		const block = {
@@ -34404,10 +35457,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$4, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$4, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -34427,12 +35480,16 @@ var app = (function () {
 	}
 
 	function create_fragment$A(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_5$3],
@@ -34445,7 +35502,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$9] },
 					$$scope: { ctx }
@@ -34453,7 +35510,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$e] },
 					$$scope: { ctx }
@@ -34461,7 +35518,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$3 },
 				$$inline: true
 			});
@@ -34549,7 +35606,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$x($$self, $$props, $$invalidate) {
+	function instance$A($$self, $$props, $$invalidate) {
 		let checked = true;
 		let indeterminate = false;
 
@@ -34572,13 +35629,22 @@ var app = (function () {
 			}
 		}
 
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Checkbox> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Checkbox", $$slots, []);
+
 		function checkbox_checked_binding(value) {
 			checked = value;
 			$$invalidate(0, checked);
 		}
 
-		function checkbox_indeterminate_binding(value_1) {
-			indeterminate = value_1;
+		function checkbox_indeterminate_binding(value) {
+			indeterminate = value;
 			$$invalidate(1, indeterminate);
 		}
 
@@ -34599,25 +35665,41 @@ var app = (function () {
 			$$invalidate(2, props);
 		}
 
-		function checkbox1_checked_binding(value_1) {
-			props.ripple = value_1;
+		function checkbox1_checked_binding(value) {
+			props.ripple = value;
 			$$invalidate(2, props);
 		}
 
-		function checkbox2_checked_binding(value_2) {
-			props.disabled = value_2;
+		function checkbox2_checked_binding(value) {
+			props.disabled = value;
 			$$invalidate(2, props);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			Checkbox,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$5,
+			doc: doc$4,
+			properties: properties$3,
+			checked,
+			indeterminate,
+			props,
+			setChecked
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("checked" in $$props) $$invalidate(0, checked = $$props.checked);
 			if ("indeterminate" in $$props) $$invalidate(1, indeterminate = $$props.indeterminate);
 			if ("props" in $$props) $$invalidate(2, props = $$props.props);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			checked,
@@ -34638,7 +35720,7 @@ var app = (function () {
 	class Checkbox_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$x, create_fragment$A, safe_not_equal, {});
+			init(this, options, instance$A, create_fragment$A, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -34651,7 +35733,7 @@ var app = (function () {
 
 	var code$6 = "<pre><code class=\"language-xml\"><span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">div</span> <span class=\"hljs-attr\">class</span>=<span class=\"hljs-string\">\"wrapper\"</span>&gt;</span>\n    <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">Checkbox</span> <span class=\"hljs-attr\">on:change</span>=<span class=\"hljs-string\">{onAll}</span> {<span class=\"hljs-attr\">checked</span>} {<span class=\"hljs-attr\">indeterminate</span>}&gt;</span>All<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">Checkbox</span>&gt;</span>\n    <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">hr</span> <span class=\"hljs-attr\">style</span>=<span class=\"hljs-string\">\"margin-bottom: 8px;\"</span> /&gt;</span>\n\n    {#each colors as item}\n        <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">Checkbox</span> <span class=\"hljs-attr\">class</span>=<span class=\"hljs-string\">\"thin\"</span> <span class=\"hljs-attr\">bind:group</span>=<span class=\"hljs-string\">{favorite}</span> <span class=\"hljs-attr\">value</span>=<span class=\"hljs-string\">{item}</span> <span class=\"hljs-attr\">color</span>=<span class=\"hljs-string\">{item}</span>&gt;</span>\n            <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">span</span> <span class=\"hljs-attr\">style</span>=<span class=\"hljs-string\">{</span>`<span class=\"hljs-attr\">color:</span> ${<span class=\"hljs-attr\">item</span>}`}&gt;</span>{item}<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">span</span>&gt;</span>\n        <span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">Checkbox</span>&gt;</span>\n    {/each}\n<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">div</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">p</span> <span class=\"hljs-attr\">class</span>=<span class=\"hljs-string\">\"result\"</span>&gt;</span>\n    Value: [\n    {#if favorite.length &gt; 0}\n        <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">code</span>&gt;</span>{favorite.join(', ')}<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">code</span>&gt;</span>\n    {/if}\n    ]\n<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">p</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">script</span>&gt;</span><span class=\"javascript\">\n    <span class=\"hljs-keyword\">import</span> { Checkbox } <span class=\"hljs-keyword\">from</span> <span class=\"hljs-string\">'@vikignt/svelte-ui'</span>;\n\n    <span class=\"hljs-keyword\">let</span> colors = [<span class=\"hljs-string\">'coral'</span>, <span class=\"hljs-string\">'goldenrod'</span>, <span class=\"hljs-string\">'limegreen'</span>];\n    <span class=\"hljs-keyword\">let</span> favorite = [<span class=\"hljs-string\">'coral'</span>, <span class=\"hljs-string\">'goldenrod'</span>];\n\n    <span class=\"hljs-comment\">// Checkbox 'All' reactive properties</span>\n    $: checked = favorite.length === colors.length;\n    $: indeterminate = favorite.length &gt; <span class=\"hljs-number\">0</span> &amp;&amp; favorite.length &lt; colors.length;\n\n    <span class=\"hljs-function\"><span class=\"hljs-keyword\">function</span> <span class=\"hljs-title\">onAll</span>(<span class=\"hljs-params\">e</span>) </span>{\n        <span class=\"hljs-keyword\">let</span> on = e.target.checked;\n\n        favorite = on ? <span class=\"hljs-built_in\">Array</span>.from(colors) : [];\n    }\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">script</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">style</span>&gt;</span><span class=\"css\">\n    <span class=\"hljs-selector-class\">.wrapper</span> {\n        <span class=\"hljs-attribute\">width</span>: <span class=\"hljs-number\">100%</span>;\n    }\n    <span class=\"hljs-selector-class\">.wrapper</span> <span class=\"hljs-selector-pseudo\">:global(.thin)</span> {\n        <span class=\"hljs-attribute\">margin-top</span>: -<span class=\"hljs-number\">8px</span> <span class=\"hljs-meta\">!important</span>;\n    }\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">style</span>&gt;</span></code></pre>\n";
 
-	/* src\pages\checkbox-group\CheckboxGroup.svelte generated by Svelte v3.16.0 */
+	/* src\pages\checkbox-group\CheckboxGroup.svelte generated by Svelte v3.23.2 */
 	const file$B = "src\\pages\\checkbox-group\\CheckboxGroup.svelte";
 
 	function get_each_context$5(ctx, list, i) {
@@ -34728,6 +35810,7 @@ var app = (function () {
 
 	// (6:2) {#each colors as item}
 	function create_each_block$5(ctx) {
+		let checkbox;
 		let updating_group;
 		let current;
 
@@ -34747,7 +35830,7 @@ var app = (function () {
 			checkbox_props.group = /*favorite*/ ctx[0];
 		}
 
-		const checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
+		checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox, "group", checkbox_group_binding));
 
 		const block = {
@@ -34855,10 +35938,12 @@ var app = (function () {
 	// (13:1) <div class="action" slot="action">
 	function create_action_slot$1(ctx) {
 		let div;
+		let button0;
 		let t;
+		let button1;
 		let current;
 
-		const button0 = new Button({
+		button0 = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_2$6] },
@@ -34869,7 +35954,7 @@ var app = (function () {
 
 		button0.$on("click", /*click_handler*/ ctx[6]);
 
-		const button1 = new Button({
+		button1 = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_1$a] },
@@ -35069,6 +36154,7 @@ var app = (function () {
 	// (1:0) <DemoPanel>
 	function create_default_slot$f(ctx) {
 		let div;
+		let checkbox;
 		let t0;
 		let hr;
 		let t1;
@@ -35077,7 +36163,7 @@ var app = (function () {
 		let t4;
 		let current;
 
-		const checkbox = new Checkbox({
+		checkbox = new Checkbox({
 				props: {
 					checked: /*checked*/ ctx[1],
 					indeterminate: /*indeterminate*/ ctx[2],
@@ -35089,6 +36175,7 @@ var app = (function () {
 
 		checkbox.$on("change", /*onAll*/ ctx[4]);
 		let each_value = /*colors*/ ctx[3];
+		validate_each_argument(each_value);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value.length; i += 1) {
@@ -35148,6 +36235,7 @@ var app = (function () {
 
 				if (dirty & /*colors, favorite*/ 9) {
 					each_value = /*colors*/ ctx[3];
+					validate_each_argument(each_value);
 					let i;
 
 					for (i = 0; i < each_value.length; i += 1) {
@@ -35215,9 +36303,10 @@ var app = (function () {
 	}
 
 	function create_fragment$B(ctx) {
+		let demopanel;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot$f],
@@ -35275,7 +36364,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$y($$self, $$props, $$invalidate) {
+	function instance$B($$self, $$props, $$invalidate) {
 		let colors = ["coral", "goldenrod", "limegreen"];
 		let favorite = ["coral", "goldenrod"];
 
@@ -35283,6 +36372,15 @@ var app = (function () {
 			let on = e.target.checked;
 			$$invalidate(0, favorite = on ? Array.from(colors) : []);
 		}
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<CheckboxGroup> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("CheckboxGroup", $$slots, []);
 
 		function checkbox_group_binding(value) {
 			favorite = value;
@@ -35292,9 +36390,17 @@ var app = (function () {
 		const click_handler = () => $$invalidate(0, favorite = Array.from(colors));
 		const click_handler_1 = () => $$invalidate(0, favorite = []);
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			Checkbox,
+			DemoPanel,
+			code: code$6,
+			colors,
+			favorite,
+			onAll,
+			checked,
+			indeterminate
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("colors" in $$props) $$invalidate(3, colors = $$props.colors);
@@ -35306,8 +36412,13 @@ var app = (function () {
 		let checked;
 		let indeterminate;
 
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*favorite*/ 1) {
+				// Checkbox 'All' reactive properties
 				 $$invalidate(1, checked = favorite.length === colors.length);
 			}
 
@@ -35331,7 +36442,7 @@ var app = (function () {
 	class CheckboxGroup extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$y, create_fragment$B, safe_not_equal, {});
+			init(this, options, instance$B, create_fragment$B, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -35387,7 +36498,9 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\datefield\Datefield.svelte generated by Svelte v3.16.0 */
+	/* src\pages\datefield\Datefield.svelte generated by Svelte v3.23.2 */
+
+	const { console: console_1$2 } = globals;
 	const file$C = "src\\pages\\datefield\\Datefield.svelte";
 
 	// (14:1) <div class="result" slot="result">
@@ -35493,11 +36606,12 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_5$4(ctx) {
+		let datefield;
 		let t0;
 		let t1;
 		let current;
 
-		const datefield = new Datefield({
+		datefield = new Datefield({
 				props: {
 					value: /*date*/ ctx[0],
 					label: "A Special Day",
@@ -35647,21 +36761,26 @@ var app = (function () {
 	// (29:0) <Play>
 	function create_default_slot_1$b(ctx) {
 		let div0;
+		let textfield0;
 		let updating_value;
 		let t0;
 		let div1;
+		let textfield1;
 		let updating_value_1;
 		let t1;
 		let div2;
+		let checkbox0;
 		let updating_checked;
 		let t2;
+		let checkbox1;
 		let updating_checked_1;
 		let t3;
+		let checkbox2;
 		let updating_checked_2;
 		let current;
 
 		function textfield0_value_binding(value) {
-			/*textfield0_value_binding*/ ctx[9].call(null, value);
+			/*textfield0_value_binding*/ ctx[8].call(null, value);
 		}
 
 		let textfield0_props = {
@@ -35674,11 +36793,11 @@ var app = (function () {
 			textfield0_props.value = /*trylocale*/ ctx[6];
 		}
 
-		const textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
+		textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield0, "value", textfield0_value_binding));
 
-		function textfield1_value_binding(value_1) {
-			/*textfield1_value_binding*/ ctx[10].call(null, value_1);
+		function textfield1_value_binding(value) {
+			/*textfield1_value_binding*/ ctx[9].call(null, value);
 		}
 
 		let textfield1_props = {
@@ -35691,11 +36810,11 @@ var app = (function () {
 			textfield1_props.value = /*format*/ ctx[4];
 		}
 
-		const textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
+		textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield1, "value", textfield1_value_binding));
 
-		function checkbox0_checked_binding(value_2) {
-			/*checkbox0_checked_binding*/ ctx[11].call(null, value_2);
+		function checkbox0_checked_binding(value) {
+			/*checkbox0_checked_binding*/ ctx[10].call(null, value);
 		}
 
 		let checkbox0_props = {
@@ -35707,11 +36826,11 @@ var app = (function () {
 			checkbox0_props.checked = /*icon*/ ctx[1];
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_3) {
-			/*checkbox1_checked_binding*/ ctx[12].call(null, value_3);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[11].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -35723,11 +36842,11 @@ var app = (function () {
 			checkbox1_props.checked = /*readonly*/ ctx[2];
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_4) {
-			/*checkbox2_checked_binding*/ ctx[13].call(null, value_4);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[12].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -35739,7 +36858,7 @@ var app = (function () {
 			checkbox2_props.checked = /*disabled*/ ctx[3];
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
 		const block = {
@@ -35886,10 +37005,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$5, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$5, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -35909,12 +37028,16 @@ var app = (function () {
 	}
 
 	function create_fragment$C(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_5$4],
@@ -35926,7 +37049,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$b] },
 					$$scope: { ctx }
@@ -35934,7 +37057,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$g] },
 					$$scope: { ctx }
@@ -35942,7 +37065,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$4 },
 				$$inline: true
 			});
@@ -36030,9 +37153,12 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$z($$self, $$props, $$invalidate) {
+	function instance$C($$self, $$props, $$invalidate) {
 		let date = "21.01.2019";
+
+		// let date = new Date(NaN);
 		let icon = false;
+
 		let readonly = false;
 		let disabled = false;
 		let format = "D.MM.YYYY";
@@ -36049,34 +37175,61 @@ var app = (function () {
 			console.log("receive data-change");
 		};
 
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console_1$2.warn(`<Datefield> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Datefield", $$slots, []);
+
 		function textfield0_value_binding(value) {
 			trylocale = value;
 			$$invalidate(6, trylocale);
 		}
 
-		function textfield1_value_binding(value_1) {
-			format = value_1;
+		function textfield1_value_binding(value) {
+			format = value;
 			$$invalidate(4, format);
 		}
 
-		function checkbox0_checked_binding(value_2) {
-			icon = value_2;
+		function checkbox0_checked_binding(value) {
+			icon = value;
 			$$invalidate(1, icon);
 		}
 
-		function checkbox1_checked_binding(value_3) {
-			readonly = value_3;
+		function checkbox1_checked_binding(value) {
+			readonly = value;
 			$$invalidate(2, readonly);
 		}
 
-		function checkbox2_checked_binding(value_4) {
-			disabled = value_4;
+		function checkbox2_checked_binding(value) {
+			disabled = value;
 			$$invalidate(3, disabled);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Datefield,
+			Checkbox,
+			Textfield,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$7,
+			doc: doc$5,
+			properties: properties$4,
+			date,
+			icon,
+			readonly,
+			disabled,
+			format,
+			browserLanguage,
+			locale,
+			trylocale,
+			onchange
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("date" in $$props) $$invalidate(0, date = $$props.date);
@@ -36084,10 +37237,14 @@ var app = (function () {
 			if ("readonly" in $$props) $$invalidate(2, readonly = $$props.readonly);
 			if ("disabled" in $$props) $$invalidate(3, disabled = $$props.disabled);
 			if ("format" in $$props) $$invalidate(4, format = $$props.format);
-			if ("browserLanguage" in $$props) $$invalidate(8, browserLanguage = $$props.browserLanguage);
+			if ("browserLanguage" in $$props) $$invalidate(13, browserLanguage = $$props.browserLanguage);
 			if ("locale" in $$props) $$invalidate(5, locale = $$props.locale);
 			if ("trylocale" in $$props) $$invalidate(6, trylocale = $$props.trylocale);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*trylocale*/ 64) {
@@ -36111,7 +37268,6 @@ var app = (function () {
 			locale,
 			trylocale,
 			onchange,
-			browserLanguage,
 			textfield0_value_binding,
 			textfield1_value_binding,
 			checkbox0_checked_binding,
@@ -36123,7 +37279,7 @@ var app = (function () {
 	class Datefield_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$z, create_fragment$C, safe_not_equal, {});
+			init(this, options, instance$C, create_fragment$C, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -36134,7 +37290,7 @@ var app = (function () {
 		}
 	}
 
-	var code$8 = "<pre><code class=\"language-xml\"><span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">div</span> <span class=\"hljs-attr\">class</span>=<span class=\"hljs-string\">\"card\"</span>&gt;</span>\n    <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">Datepicker</span>\n        <span class=\"hljs-attr\">bind:value</span>=<span class=\"hljs-string\">{date}</span>\n        <span class=\"hljs-attr\">isAllowed</span>=<span class=\"hljs-string\">{(date)</span> =&gt;</span> {\n            return date.getDay() &gt; 0 &amp;&amp; date.getDay() <span class=\"hljs-tag\">&lt; <span class=\"hljs-attr\">6</span>;\n        }}\n    /&gt;</span>\n<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">div</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">script</span>&gt;</span><span class=\"javascript\">\n    <span class=\"hljs-keyword\">import</span> { Datepicker } <span class=\"hljs-keyword\">from</span> <span class=\"hljs-string\">'@vikignt/svelte-ui'</span>;\n\n    <span class=\"hljs-keyword\">let</span> date = <span class=\"hljs-keyword\">new</span> <span class=\"hljs-built_in\">Date</span>();\n    date.setDate(date.getDate() + <span class=\"hljs-number\">2</span>);\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">script</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">style</span>&gt;</span><span class=\"css\">\n    <span class=\"hljs-selector-class\">.card</span> {\n        <span class=\"hljs-attribute\">display</span>: inline-block;\n        <span class=\"hljs-attribute\">box-shadow</span>: <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">3px</span> <span class=\"hljs-number\">3px</span> -<span class=\"hljs-number\">2px</span> <span class=\"hljs-built_in\">rgba</span>(0, 0, 0, 0.2), <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">3px</span> <span class=\"hljs-number\">4px</span> <span class=\"hljs-number\">0</span> <span class=\"hljs-built_in\">rgba</span>(0, 0, 0, 0.14),\n            <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">1px</span> <span class=\"hljs-number\">8px</span> <span class=\"hljs-number\">0</span> <span class=\"hljs-built_in\">rgba</span>(0, 0, 0, 0.12);\n    }\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">style</span>&gt;</span></code></pre>\n";
+	var code$8 = "<pre><code class=\"language-xml\"><span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">div</span> <span class=\"hljs-attr\">class</span>=<span class=\"hljs-string\">\"card\"</span>&gt;</span>\n    <span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">Datepicker</span>\n        <span class=\"hljs-attr\">bind:value</span>=<span class=\"hljs-string\">{date}</span>\n        <span class=\"hljs-attr\">isAllowed</span>=<span class=\"hljs-string\">{(date)</span> =&gt;</span> {\n            return date.getDay() &gt; 0 &amp;&amp; date.getDay() <span class=\"hljs-tag\">&lt; <span class=\"hljs-attr\">6</span>;\n        }}\n    /&gt;</span>\n<span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">div</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">script</span>&gt;</span><span class=\"javascript\">\n    <span class=\"hljs-keyword\">import</span> { Datepicker } <span class=\"hljs-keyword\">from</span> <span class=\"hljs-string\">'@vikignt/svelte-ui'</span>;\n\n    <span class=\"hljs-keyword\">let</span> date = <span class=\"hljs-keyword\">new</span> <span class=\"hljs-built_in\">Date</span>();\n    date.setDate(date.getDate() + <span class=\"hljs-number\">2</span>);\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">script</span>&gt;</span>\n\n<span class=\"hljs-tag\">&lt;<span class=\"hljs-name\">style</span>&gt;</span><span class=\"css\">\n    <span class=\"hljs-selector-class\">.card</span> {\n        <span class=\"hljs-attribute\">display</span>: inline-block;\n        <span class=\"hljs-attribute\">box-shadow</span>: <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">3px</span> <span class=\"hljs-number\">3px</span> -<span class=\"hljs-number\">2px</span> <span class=\"hljs-built_in\">rgba</span>(<span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0.2</span>), <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">3px</span> <span class=\"hljs-number\">4px</span> <span class=\"hljs-number\">0</span> <span class=\"hljs-built_in\">rgba</span>(<span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0.14</span>),\n            <span class=\"hljs-number\">0</span> <span class=\"hljs-number\">1px</span> <span class=\"hljs-number\">8px</span> <span class=\"hljs-number\">0</span> <span class=\"hljs-built_in\">rgba</span>(<span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0</span>, <span class=\"hljs-number\">0.12</span>);\n    }\n</span><span class=\"hljs-tag\">&lt;/<span class=\"hljs-name\">style</span>&gt;</span></code></pre>\n";
 
 	var doc$6 = "<p>Datepicker component shows a calendar that allows the user to pick a date. This is the basis for <a href='/datefield'>Datefield</a> component, but can be used individually. This component uses the <code>Intl</code> browser Internationalization API which provides language sensitive date formatting</p>\n<h4 id=\"events\">Events</h4>\n<p><code>select</code> custom event emitted when the datepicker value is selected, <code>detail</code> field contains the <code>Date</code> object</p>\n<p>Any HTMLElement events</p>\n";
 
@@ -36166,7 +37322,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\datepicker\Datepicker.svelte generated by Svelte v3.16.0 */
+	/* src\pages\datepicker\Datepicker.svelte generated by Svelte v3.23.2 */
 	const file$D = "src\\pages\\datepicker\\Datepicker.svelte";
 
 	// (13:1) <div class="result" slot="result">
@@ -36268,13 +37424,14 @@ var app = (function () {
 	// (1:0) <DemoPanel>
 	function create_default_slot_3$6(ctx) {
 		let div;
+		let datepicker;
 		let updating_value;
 		let t0;
 		let t1;
 		let current;
 
 		function datepicker_value_binding(value) {
-			/*datepicker_value_binding*/ ctx[6].call(null, value);
+			/*datepicker_value_binding*/ ctx[5].call(null, value);
 		}
 
 		let datepicker_props = {
@@ -36287,7 +37444,7 @@ var app = (function () {
 			datepicker_props.value = /*date*/ ctx[1];
 		}
 
-		const datepicker = new Datepicker({ props: datepicker_props, $$inline: true });
+		datepicker = new Datepicker({ props: datepicker_props, $$inline: true });
 		binding_callbacks.push(() => bind(datepicker, "value", datepicker_value_binding));
 
 		const block = {
@@ -36377,14 +37534,16 @@ var app = (function () {
 	// (29:0) <Play>
 	function create_default_slot_1$c(ctx) {
 		let div0;
+		let textfield;
 		let updating_value;
 		let t;
 		let div1;
+		let checkbox;
 		let updating_checked;
 		let current;
 
 		function textfield_value_binding(value) {
-			/*textfield_value_binding*/ ctx[7].call(null, value);
+			/*textfield_value_binding*/ ctx[6].call(null, value);
 		}
 
 		let textfield_props = {
@@ -36398,11 +37557,11 @@ var app = (function () {
 			textfield_props.value = /*trylocale*/ ctx[3];
 		}
 
-		const textfield = new Textfield({ props: textfield_props, $$inline: true });
+		textfield = new Textfield({ props: textfield_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield, "value", textfield_value_binding));
 
-		function checkbox_checked_binding(value_1) {
-			/*checkbox_checked_binding*/ ctx[8].call(null, value_1);
+		function checkbox_checked_binding(value) {
+			/*checkbox_checked_binding*/ ctx[7].call(null, value);
 		}
 
 		let checkbox_props = {
@@ -36414,7 +37573,7 @@ var app = (function () {
 			checkbox_props.checked = /*header*/ ctx[0];
 		}
 
-		const checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
+		checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox, "checked", checkbox_checked_binding));
 
 		const block = {
@@ -36498,10 +37657,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$6, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$6, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -36521,12 +37680,16 @@ var app = (function () {
 	}
 
 	function create_fragment$D(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_3$6],
@@ -36538,7 +37701,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$c] },
 					$$scope: { ctx }
@@ -36546,7 +37709,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$h] },
 					$$scope: { ctx }
@@ -36554,7 +37717,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$5 },
 				$$inline: true
 			});
@@ -36646,7 +37809,7 @@ var app = (function () {
 		return date.getDay() > 0 && date.getDay() < 6;
 	};
 
-	function instance$A($$self, $$props, $$invalidate) {
+	function instance$D($$self, $$props, $$invalidate) {
 		let header = true;
 		let date = new Date();
 		date.setDate(date.getDate() + 2);
@@ -36658,6 +37821,14 @@ var app = (function () {
 		let locale = browserLanguage;
 		let trylocale = locale;
 		let formattedDate;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Datepicker> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Datepicker", $$slots, []);
 
 		function datepicker_value_binding(value) {
 			date = value;
@@ -36669,23 +37840,42 @@ var app = (function () {
 			$$invalidate(3, trylocale);
 		}
 
-		function checkbox_checked_binding(value_1) {
-			header = value_1;
+		function checkbox_checked_binding(value) {
+			header = value;
 			$$invalidate(0, header);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Datepicker,
+			Checkbox,
+			Textfield,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$8,
+			doc: doc$6,
+			properties: properties$5,
+			header,
+			date,
+			browserLanguage,
+			locale,
+			trylocale,
+			formattedDate
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("header" in $$props) $$invalidate(0, header = $$props.header);
 			if ("date" in $$props) $$invalidate(1, date = $$props.date);
-			if ("browserLanguage" in $$props) $$invalidate(5, browserLanguage = $$props.browserLanguage);
+			if ("browserLanguage" in $$props) $$invalidate(8, browserLanguage = $$props.browserLanguage);
 			if ("locale" in $$props) $$invalidate(2, locale = $$props.locale);
 			if ("trylocale" in $$props) $$invalidate(3, trylocale = $$props.trylocale);
 			if ("formattedDate" in $$props) $$invalidate(4, formattedDate = $$props.formattedDate);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*trylocale, locale, date*/ 14) {
@@ -36708,7 +37898,6 @@ var app = (function () {
 			locale,
 			trylocale,
 			formattedDate,
-			browserLanguage,
 			datepicker_value_binding,
 			textfield_value_binding,
 			checkbox_checked_binding
@@ -36718,7 +37907,7 @@ var app = (function () {
 	class Datepicker_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$A, create_fragment$D, safe_not_equal, {});
+			init(this, options, instance$D, create_fragment$D, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -36774,7 +37963,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\dialog\Dialog.svelte generated by Svelte v3.16.0 */
+	/* src\pages\dialog\Dialog.svelte generated by Svelte v3.23.2 */
 	const file$E = "src\\pages\\dialog\\Dialog.svelte";
 
 	// (4:1) <Button   color="primary"   outlined   on:click={() => {    visible = true;   }}  >
@@ -36841,10 +38030,11 @@ var app = (function () {
 
 	// (3:0) <DemoPanel>
 	function create_default_slot_1$d(ctx) {
+		let button;
 		let t;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					color: "primary",
 					outlined: true,
@@ -36907,10 +38097,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$7, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$7, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -36930,10 +38120,14 @@ var app = (function () {
 	}
 
 	function create_fragment$E(ctx) {
+		let logindialog;
 		let updating_visible;
 		let t0;
+		let demopanel;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
 		function logindialog_visible_binding(value) {
@@ -36946,10 +38140,10 @@ var app = (function () {
 			logindialog_props.visible = /*visible*/ ctx[0];
 		}
 
-		const logindialog = new LoginDialog({ props: logindialog_props, $$inline: true });
+		logindialog = new LoginDialog({ props: logindialog_props, $$inline: true });
 		binding_callbacks.push(() => bind(logindialog, "visible", logindialog_visible_binding));
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$d],
@@ -36960,7 +38154,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$i] },
 					$$scope: { ctx }
@@ -36968,7 +38162,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$6 },
 				$$inline: true
 			});
@@ -37058,8 +38252,16 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$B($$self, $$props, $$invalidate) {
+	function instance$E($$self, $$props, $$invalidate) {
 		let visible = false;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Dialog> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Dialog", $$slots, []);
 
 		function logindialog_visible_binding(value) {
 			visible = value;
@@ -37070,13 +38272,25 @@ var app = (function () {
 			$$invalidate(0, visible = true);
 		};
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			LoginDialog,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$9,
+			doc: doc$7,
+			properties: properties$6,
+			visible
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [visible, logindialog_visible_binding, click_handler];
 	}
@@ -37084,7 +38298,7 @@ var app = (function () {
 	class Dialog$1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$B, create_fragment$E, safe_not_equal, {});
+			init(this, options, instance$E, create_fragment$E, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -37095,7 +38309,7 @@ var app = (function () {
 		}
 	}
 
-	/* src\components\icons\svg\paint.svg generated by Svelte v3.16.0 */
+	/* src\components\icons\svg\paint.svg generated by Svelte v3.23.2 */
 
 	const file$F = "src\\components\\icons\\svg\\paint.svg";
 
@@ -37236,10 +38450,22 @@ var app = (function () {
 		return block;
 	}
 
+	function instance$F($$self, $$props) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Paint> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Paint", $$slots, []);
+		return [];
+	}
+
 	class Paint extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, null, create_fragment$F, safe_not_equal, {});
+			init(this, options, instance$F, create_fragment$F, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -37306,11 +38532,12 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\icon\Icon.svelte generated by Svelte v3.16.0 */
+	/* src\pages\icon\Icon.svelte generated by Svelte v3.23.2 */
 	const file$G = "src\\pages\\icon\\Icon.svelte";
 
 	// (16:2) <Icon>
 	function create_default_slot_5$5(ctx) {
+		let switch_instance;
 		let switch_instance_anchor;
 		let current;
 		var switch_value = Approval;
@@ -37320,7 +38547,7 @@ var app = (function () {
 		}
 
 		if (switch_value) {
-			var switch_instance = new switch_value(switch_props());
+			switch_instance = new switch_value(switch_props());
 		}
 
 		const block = {
@@ -37387,6 +38614,7 @@ var app = (function () {
 
 	// (19:2) <Icon size="36">
 	function create_default_slot_4$6(ctx) {
+		let switch_instance;
 		let switch_instance_anchor;
 		let current;
 		var switch_value = Paint;
@@ -37396,7 +38624,7 @@ var app = (function () {
 		}
 
 		if (switch_value) {
-			var switch_instance = new switch_value(switch_props());
+			switch_instance = new switch_value(switch_props());
 		}
 
 		const block = {
@@ -37526,6 +38754,7 @@ var app = (function () {
 	// (44:1) <div slot="action">
 	function create_action_slot$2(ctx) {
 		let div;
+		let checkbox;
 		let updating_checked;
 		let current;
 
@@ -37542,7 +38771,7 @@ var app = (function () {
 			checkbox_props.checked = /*pulse*/ ctx[0];
 		}
 
-		const checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
+		checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox, "checked", checkbox_checked_binding));
 
 		const block = {
@@ -37636,20 +38865,30 @@ var app = (function () {
 	// (1:0) <DemoPanel>
 	function create_default_slot_1$e(ctx) {
 		let div;
+		let icon0;
 		let t0;
+		let icon1;
 		let t1;
+		let icon2;
 		let t2;
+		let icon3;
 		let t3;
+		let icon4;
 		let t4;
+		let icon5;
 		let t5;
+		let icon6;
 		let t6;
+		let icon7;
 		let t7;
+		let icon8;
 		let t8;
+		let icon9;
 		let t9;
 		let t10;
 		let current;
 
-		const icon0 = new Icon({
+		icon0 = new Icon({
 				props: {
 					color: "hotpink",
 					style: "position: absolute; margin-left: -16px; margin-top: -8px;",
@@ -37658,9 +38897,9 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const icon1 = new Icon({ props: { path: home }, $$inline: true });
+		icon1 = new Icon({ props: { path: home }, $$inline: true });
 
-		const icon2 = new Icon({
+		icon2 = new Icon({
 				props: {
 					$$slots: { default: [create_default_slot_5$5] },
 					$$scope: { ctx }
@@ -37668,7 +38907,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const icon3 = new Icon({
+		icon3 = new Icon({
 				props: {
 					size: "36",
 					$$slots: { default: [create_default_slot_4$6] },
@@ -37677,7 +38916,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const icon4 = new Icon({
+		icon4 = new Icon({
 				props: {
 					path: spinner,
 					size: "36",
@@ -37687,7 +38926,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const icon5 = new Icon({
+		icon5 = new Icon({
 				props: {
 					color: "Red",
 					$$slots: { default: [create_default_slot_3$7] },
@@ -37696,22 +38935,22 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const icon6 = new Icon({
+		icon6 = new Icon({
 				props: { path: cartOutline },
 				$$inline: true
 			});
 
-		const icon7 = new Icon({
+		icon7 = new Icon({
 				props: { path: cartOutline, flip: "h" },
 				$$inline: true
 			});
 
-		const icon8 = new Icon({
+		icon8 = new Icon({
 				props: { path: cartOutline, flip: "v" },
 				$$inline: true
 			});
 
-		const icon9 = new Icon({
+		icon9 = new Icon({
 				props: { path: cartOutline, flip: true },
 				$$inline: true
 			});
@@ -37856,10 +39095,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$8, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$8, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -37879,11 +39118,14 @@ var app = (function () {
 	}
 
 	function create_fragment$G(ctx) {
+		let demopanel;
 		let t0;
+		let description;
 		let t1;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$e],
@@ -37895,7 +39137,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$j] },
 					$$scope: { ctx }
@@ -37903,7 +39145,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$7 },
 				$$inline: true
 			});
@@ -37976,21 +39218,46 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$C($$self, $$props, $$invalidate) {
+	function instance$G($$self, $$props, $$invalidate) {
 		let pulse = false;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Icon> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Icon", $$slots, []);
 
 		function checkbox_checked_binding(value) {
 			pulse = value;
 			$$invalidate(0, pulse);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Icon,
+			Checkbox,
+			paint: Paint,
+			approval: Approval,
+			home,
+			cartOutline,
+			spinner,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$a,
+			doc: doc$8,
+			properties: properties$7,
+			pulse
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("pulse" in $$props) $$invalidate(0, pulse = $$props.pulse);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [pulse, checkbox_checked_binding];
 	}
@@ -37998,7 +39265,7 @@ var app = (function () {
 	class Icon_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$C, create_fragment$G, safe_not_equal, {});
+			init(this, options, instance$G, create_fragment$G, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -38046,16 +39313,17 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\menu\Menu.svelte generated by Svelte v3.16.0 */
+	/* src\pages\menu\Menu.svelte generated by Svelte v3.23.2 */
 	const file$H = "src\\pages\\menu\\Menu.svelte";
 
 	// (4:3) <Button color="primary" outlined ripple={false} style="padding-right: 4px;">
 	function create_default_slot_14$2(ctx) {
 		let span;
 		let t1;
+		let icon;
 		let current;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: arrowDropDown },
 				$$inline: true
 			});
@@ -38105,9 +39373,10 @@ var app = (function () {
 	// (3:2) <div slot="activator">
 	function create_activator_slot$1(ctx) {
 		let div;
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					color: "primary",
 					outlined: true,
@@ -38331,16 +39600,22 @@ var app = (function () {
 	// (2:1) <Menu style="border-radius: 4px;" {origin} {dx} {dy} width={width * 56}>
 	function create_default_slot_7$3(ctx) {
 		let t0;
+		let menuitem0;
 		let t1;
+		let menuitem1;
 		let t2;
+		let menuitem2;
 		let t3;
+		let menuitem3;
 		let t4;
+		let menuitem4;
 		let t5;
 		let hr;
 		let t6;
+		let menuitem5;
 		let current;
 
-		const menuitem0 = new Menuitem({
+		menuitem0 = new Menuitem({
 				props: {
 					$$slots: { default: [create_default_slot_13$2] },
 					$$scope: { ctx }
@@ -38350,7 +39625,7 @@ var app = (function () {
 
 		menuitem0.$on("click", /*click_handler*/ ctx[5]);
 
-		const menuitem1 = new Menuitem({
+		menuitem1 = new Menuitem({
 				props: {
 					$$slots: { default: [create_default_slot_12$2] },
 					$$scope: { ctx }
@@ -38360,7 +39635,7 @@ var app = (function () {
 
 		menuitem1.$on("click", /*click_handler_1*/ ctx[6]);
 
-		const menuitem2 = new Menuitem({
+		menuitem2 = new Menuitem({
 				props: {
 					disabled: true,
 					$$slots: { default: [create_default_slot_11$2] },
@@ -38371,7 +39646,7 @@ var app = (function () {
 
 		menuitem2.$on("click", /*click_handler_2*/ ctx[7]);
 
-		const menuitem3 = new Menuitem({
+		menuitem3 = new Menuitem({
 				props: {
 					$$slots: { default: [create_default_slot_10$2] },
 					$$scope: { ctx }
@@ -38381,7 +39656,7 @@ var app = (function () {
 
 		menuitem3.$on("click", /*click_handler_3*/ ctx[8]);
 
-		const menuitem4 = new Menuitem({
+		menuitem4 = new Menuitem({
 				props: {
 					$$slots: { default: [create_default_slot_9$3] },
 					$$scope: { ctx }
@@ -38391,7 +39666,7 @@ var app = (function () {
 
 		menuitem4.$on("click", /*click_handler_4*/ ctx[9]);
 
-		const menuitem5 = new Menuitem({
+		menuitem5 = new Menuitem({
 				props: {
 					href: "https://svelte.dev",
 					target: "_blank",
@@ -38653,11 +39928,12 @@ var app = (function () {
 
 	// (1:0) <DemoPanel>
 	function create_default_slot_6$4(ctx) {
+		let menu_1;
 		let t0;
 		let t1;
 		let current;
 
-		const menu_1 = new Menu({
+		menu_1 = new Menu({
 				props: {
 					style: "border-radius: 4px;",
 					origin: /*origin*/ ctx[1],
@@ -38836,33 +40112,35 @@ var app = (function () {
 	// (34:0) <Play>
 	function create_default_slot_1$f(ctx) {
 		let div0;
+		let radio0;
 		let updating_group;
 		let t0;
+		let radio1;
 		let updating_group_1;
 		let t1;
+		let radio2;
 		let updating_group_2;
 		let t2;
+		let radio3;
 		let updating_group_3;
 		let t3;
 		let div1;
 		let label0;
 		let input0;
-		let input0_updating = false;
 		let t4;
 		let span0;
 		let t6;
 		let label1;
 		let input1;
-		let input1_updating = false;
 		let t7;
 		let span1;
 		let t9;
 		let label2;
 		let input2;
-		let input2_updating = false;
 		let t10;
 		let span2;
 		let current;
+		let mounted;
 		let dispose;
 
 		function radio0_group_binding(value) {
@@ -38879,11 +40157,11 @@ var app = (function () {
 			radio0_props.group = /*origin*/ ctx[1];
 		}
 
-		const radio0 = new Radio({ props: radio0_props, $$inline: true });
+		radio0 = new Radio({ props: radio0_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio0, "group", radio0_group_binding));
 
-		function radio1_group_binding(value_1) {
-			/*radio1_group_binding*/ ctx[11].call(null, value_1);
+		function radio1_group_binding(value) {
+			/*radio1_group_binding*/ ctx[11].call(null, value);
 		}
 
 		let radio1_props = {
@@ -38896,11 +40174,11 @@ var app = (function () {
 			radio1_props.group = /*origin*/ ctx[1];
 		}
 
-		const radio1 = new Radio({ props: radio1_props, $$inline: true });
+		radio1 = new Radio({ props: radio1_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio1, "group", radio1_group_binding));
 
-		function radio2_group_binding(value_2) {
-			/*radio2_group_binding*/ ctx[12].call(null, value_2);
+		function radio2_group_binding(value) {
+			/*radio2_group_binding*/ ctx[12].call(null, value);
 		}
 
 		let radio2_props = {
@@ -38914,11 +40192,11 @@ var app = (function () {
 			radio2_props.group = /*origin*/ ctx[1];
 		}
 
-		const radio2 = new Radio({ props: radio2_props, $$inline: true });
+		radio2 = new Radio({ props: radio2_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio2, "group", radio2_group_binding));
 
-		function radio3_group_binding(value_3) {
-			/*radio3_group_binding*/ ctx[13].call(null, value_3);
+		function radio3_group_binding(value) {
+			/*radio3_group_binding*/ ctx[13].call(null, value);
 		}
 
 		let radio3_props = {
@@ -38931,23 +40209,8 @@ var app = (function () {
 			radio3_props.group = /*origin*/ ctx[1];
 		}
 
-		const radio3 = new Radio({ props: radio3_props, $$inline: true });
+		radio3 = new Radio({ props: radio3_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio3, "group", radio3_group_binding));
-
-		function input0_input_handler() {
-			input0_updating = true;
-			/*input0_input_handler*/ ctx[14].call(input0);
-		}
-
-		function input1_input_handler() {
-			input1_updating = true;
-			/*input1_input_handler*/ ctx[15].call(input1);
-		}
-
-		function input2_input_handler() {
-			input2_updating = true;
-			/*input2_input_handler*/ ctx[16].call(input2);
-		}
 
 		const block = {
 			c: function create() {
@@ -39001,12 +40264,6 @@ var app = (function () {
 				add_location(label2, file$H, 50, 2, 1486);
 				attr_dev(div1, "class", "properties");
 				add_location(div1, file$H, 41, 1, 1205);
-
-				dispose = [
-					listen_dev(input0, "input", input0_input_handler),
-					listen_dev(input1, "input", input1_input_handler),
-					listen_dev(input2, "input", input2_input_handler)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div0, anchor);
@@ -39037,6 +40294,16 @@ var app = (function () {
 				append_dev(label2, t10);
 				append_dev(label2, span2);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input0, "input", /*input0_input_handler*/ ctx[14]),
+						listen_dev(input1, "input", /*input1_input_handler*/ ctx[15]),
+						listen_dev(input2, "input", /*input2_input_handler*/ ctx[16])
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
 				const radio0_changes = {};
@@ -39092,23 +40359,17 @@ var app = (function () {
 
 				radio3.$set(radio3_changes);
 
-				if (!input0_updating && dirty & /*dx*/ 4) {
+				if (dirty & /*dx*/ 4 && to_number(input0.value) !== /*dx*/ ctx[2]) {
 					set_input_value(input0, /*dx*/ ctx[2]);
 				}
 
-				input0_updating = false;
-
-				if (!input1_updating && dirty & /*dy*/ 8) {
+				if (dirty & /*dy*/ 8 && to_number(input1.value) !== /*dy*/ ctx[3]) {
 					set_input_value(input1, /*dy*/ ctx[3]);
 				}
 
-				input1_updating = false;
-
-				if (!input2_updating && dirty & /*width*/ 16) {
+				if (dirty & /*width*/ 16 && to_number(input2.value) !== /*width*/ ctx[4]) {
 					set_input_value(input2, /*width*/ ctx[4]);
 				}
-
-				input2_updating = false;
 			},
 			i: function intro(local) {
 				if (current) return;
@@ -39133,6 +40394,7 @@ var app = (function () {
 				destroy_component(radio3);
 				if (detaching) detach_dev(t3);
 				if (detaching) detach_dev(div1);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -39154,10 +40416,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$9, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$9, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -39177,12 +40439,16 @@ var app = (function () {
 	}
 
 	function create_fragment$H(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_6$4],
@@ -39194,7 +40460,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$f] },
 					$$scope: { ctx }
@@ -39202,7 +40468,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$k] },
 					$$scope: { ctx }
@@ -39210,7 +40476,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$8 },
 				$$inline: true
 			});
@@ -39298,12 +40564,20 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$D($$self, $$props, $$invalidate) {
+	function instance$H($$self, $$props, $$invalidate) {
 		let menu;
 		let origin = "top left";
 		let dx = 0;
 		let dy = 0;
 		let width = 2;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Menu> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Menu", $$slots, []);
 		const click_handler = () => $$invalidate(0, menu = "Refresh");
 		const click_handler_1 = () => $$invalidate(0, menu = "Send feedback");
 		const click_handler_2 = () => $$invalidate(0, menu = "Settings");
@@ -39315,18 +40589,18 @@ var app = (function () {
 			$$invalidate(1, origin);
 		}
 
-		function radio1_group_binding(value_1) {
-			origin = value_1;
+		function radio1_group_binding(value) {
+			origin = value;
 			$$invalidate(1, origin);
 		}
 
-		function radio2_group_binding(value_2) {
-			origin = value_2;
+		function radio2_group_binding(value) {
+			origin = value;
 			$$invalidate(1, origin);
 		}
 
-		function radio3_group_binding(value_3) {
-			origin = value_3;
+		function radio3_group_binding(value) {
+			origin = value;
 			$$invalidate(1, origin);
 		}
 
@@ -39345,9 +40619,26 @@ var app = (function () {
 			$$invalidate(4, width);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Menu,
+			Menuitem,
+			Icon,
+			Button,
+			Radio,
+			arrowDropDown,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$b,
+			doc: doc$9,
+			properties: properties$8,
+			menu,
+			origin,
+			dx,
+			dy,
+			width
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("menu" in $$props) $$invalidate(0, menu = $$props.menu);
@@ -39356,6 +40647,10 @@ var app = (function () {
 			if ("dy" in $$props) $$invalidate(3, dy = $$props.dy);
 			if ("width" in $$props) $$invalidate(4, width = $$props.width);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			menu,
@@ -39381,7 +40676,7 @@ var app = (function () {
 	class Menu_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$D, create_fragment$H, safe_not_equal, {});
+			init(this, options, instance$H, create_fragment$H, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -39436,7 +40731,9 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\radio\Radio.svelte generated by Svelte v3.16.0 */
+	/* src\pages\radio\Radio.svelte generated by Svelte v3.23.2 */
+
+	const { Object: Object_1$2 } = globals;
 	const file$I = "src\\pages\\radio\\Radio.svelte";
 
 	function get_each_context$6(ctx, list, i) {
@@ -39480,6 +40777,7 @@ var app = (function () {
 
 	// (2:1) {#each Object.keys(colors) as key}
 	function create_each_block$6(ctx) {
+		let radio;
 		let updating_group;
 		let current;
 
@@ -39506,7 +40804,7 @@ var app = (function () {
 			radio_props.group = /*group*/ ctx[0];
 		}
 
-		const radio = new Radio({ props: radio_props, $$inline: true });
+		radio = new Radio({ props: radio_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio, "group", radio_group_binding));
 
 		const block = {
@@ -39518,11 +40816,11 @@ var app = (function () {
 				current = true;
 			},
 			p: function update(ctx, dirty) {
-				const radio_changes = dirty & /*props, colors, Object*/ 6
+				const radio_changes = (dirty & /*props, colors, Object*/ 6)
 				? get_spread_update(radio_spread_levels, [
 						dirty & /*props*/ 2 && get_spread_object(/*props*/ ctx[1]),
-						dirty & /*colors, Object*/ 4 && ({ color: /*colors*/ ctx[2][/*key*/ ctx[8]] }),
-						dirty & /*Object, colors*/ 4 && ({ value: /*key*/ ctx[8] })
+						dirty & /*colors, Object*/ 4 && { color: /*colors*/ ctx[2][/*key*/ ctx[8]] },
+						dirty & /*Object, colors*/ 4 && { value: /*key*/ ctx[8] }
 					])
 				: {};
 
@@ -39593,9 +40891,10 @@ var app = (function () {
 	// (8:1) <div class="action" slot="action">
 	function create_action_slot$3(ctx) {
 		let div;
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					shaped: true,
 					$$slots: { default: [create_default_slot_6$5] },
@@ -39742,6 +41041,7 @@ var app = (function () {
 		let t2;
 		let current;
 		let each_value = Object.keys(/*colors*/ ctx[2]);
+		validate_each_argument(each_value);
 		let each_blocks = [];
 
 		for (let i = 0; i < each_value.length; i += 1) {
@@ -39775,6 +41075,7 @@ var app = (function () {
 			p: function update(ctx, dirty) {
 				if (dirty & /*props, colors, Object, group*/ 7) {
 					each_value = Object.keys(/*colors*/ ctx[2]);
+					validate_each_argument(each_value);
 					let i;
 
 					for (i = 0; i < each_value.length; i += 1) {
@@ -39921,10 +41222,13 @@ var app = (function () {
 	// (25:0) <Play>
 	function create_default_slot_1$g(ctx) {
 		let div;
+		let checkbox0;
 		let updating_checked;
 		let t0;
+		let checkbox1;
 		let updating_checked_1;
 		let t1;
+		let checkbox2;
 		let updating_checked_2;
 		let current;
 
@@ -39941,11 +41245,11 @@ var app = (function () {
 			checkbox0_props.checked = /*props*/ ctx[1].right;
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_1) {
-			/*checkbox1_checked_binding*/ ctx[6].call(null, value_1);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[6].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -39958,11 +41262,11 @@ var app = (function () {
 			checkbox1_props.checked = /*props*/ ctx[1].ripple;
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_2) {
-			/*checkbox2_checked_binding*/ ctx[7].call(null, value_2);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[7].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -39974,7 +41278,7 @@ var app = (function () {
 			checkbox2_props.checked = /*props*/ ctx[1].disabled;
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
 		const block = {
@@ -40075,10 +41379,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$a, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$a, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -40098,12 +41402,16 @@ var app = (function () {
 	}
 
 	function create_fragment$I(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_5$7],
@@ -40116,7 +41424,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$g] },
 					$$scope: { ctx }
@@ -40124,7 +41432,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$l] },
 					$$scope: { ctx }
@@ -40132,7 +41440,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$9 },
 				$$inline: true
 			});
@@ -40220,7 +41528,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$E($$self, $$props, $$invalidate) {
+	function instance$I($$self, $$props, $$invalidate) {
 		let group = "Green";
 
 		let colors = {
@@ -40236,6 +41544,15 @@ var app = (function () {
 			disabled: false
 		};
 
+		const writable_props = [];
+
+		Object_1$2.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Radio> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Radio", $$slots, []);
+
 		function radio_group_binding(value) {
 			group = value;
 			$$invalidate(0, group);
@@ -40248,25 +41565,41 @@ var app = (function () {
 			$$invalidate(1, props);
 		}
 
-		function checkbox1_checked_binding(value_1) {
-			props.ripple = value_1;
+		function checkbox1_checked_binding(value) {
+			props.ripple = value;
 			$$invalidate(1, props);
 		}
 
-		function checkbox2_checked_binding(value_2) {
-			props.disabled = value_2;
+		function checkbox2_checked_binding(value) {
+			props.disabled = value;
 			$$invalidate(1, props);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			Checkbox,
+			Radio,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$c,
+			doc: doc$a,
+			properties: properties$9,
+			group,
+			colors,
+			props
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("group" in $$props) $$invalidate(0, group = $$props.group);
 			if ("colors" in $$props) $$invalidate(2, colors = $$props.colors);
 			if ("props" in $$props) $$invalidate(1, props = $$props.props);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			group,
@@ -40283,7 +41616,7 @@ var app = (function () {
 	class Radio_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$E, create_fragment$I, safe_not_equal, {});
+			init(this, options, instance$I, create_fragment$I, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -40313,7 +41646,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\ripple\Ripple.svelte generated by Svelte v3.16.0 */
+	/* src\pages\ripple\Ripple.svelte generated by Svelte v3.23.2 */
 	const file$J = "src\\pages\\ripple\\Ripple.svelte";
 
 	// (11:1) <div slot="code">
@@ -40355,13 +41688,15 @@ var app = (function () {
 	function create_default_slot_1$h(ctx) {
 		let div0;
 		let t0;
+		let ripple0;
 		let t1;
 		let div1;
 		let t2;
+		let ripple1;
 		let t3;
 		let current;
-		const ripple0 = new Ripple({ $$inline: true });
-		const ripple1 = new Ripple({ props: { center: true }, $$inline: true });
+		ripple0 = new Ripple({ $$inline: true });
+		ripple1 = new Ripple({ props: { center: true }, $$inline: true });
 
 		const block = {
 			c: function create() {
@@ -40428,10 +41763,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$b, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$b, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -40451,11 +41786,14 @@ var app = (function () {
 	}
 
 	function create_fragment$J(ctx) {
+		let demopanel;
 		let t0;
+		let description;
 		let t1;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$h],
@@ -40466,7 +41804,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$m] },
 					$$scope: { ctx }
@@ -40474,7 +41812,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$a },
 				$$inline: true
 			});
@@ -40547,10 +41885,33 @@ var app = (function () {
 		return block;
 	}
 
+	function instance$J($$self, $$props, $$invalidate) {
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Ripple> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Ripple", $$slots, []);
+
+		$$self.$capture_state = () => ({
+			Ripple,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$d,
+			doc: doc$b,
+			properties: properties$a
+		});
+
+		return [];
+	}
+
 	class Ripple_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, null, create_fragment$J, safe_not_equal, {});
+			init(this, options, instance$J, create_fragment$J, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -40586,7 +41947,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\sidepanel\Sidepanel.svelte generated by Svelte v3.16.0 */
+	/* src\pages\sidepanel\Sidepanel.svelte generated by Svelte v3.23.2 */
 	const file$K = "src\\pages\\sidepanel\\Sidepanel.svelte";
 
 	// (1:0) <Sidepanel bind:visible={leftVisible}>
@@ -40770,11 +42131,13 @@ var app = (function () {
 
 	// (15:0) <DemoPanel>
 	function create_default_slot_1$i(ctx) {
+		let button0;
 		let t0;
+		let button1;
 		let t1;
 		let current;
 
-		const button0 = new Button({
+		button0 = new Button({
 				props: {
 					color: "primary",
 					outlined: true,
@@ -40786,7 +42149,7 @@ var app = (function () {
 
 		button0.$on("click", /*click_handler*/ ctx[4]);
 
-		const button1 = new Button({
+		button1 = new Button({
 				props: {
 					color: "primary",
 					outlined: true,
@@ -40864,10 +42227,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$c, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$c, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -40887,12 +42250,17 @@ var app = (function () {
 	}
 
 	function create_fragment$K(ctx) {
+		let sidepanel0;
 		let updating_visible;
 		let t0;
+		let sidepanel1;
 		let updating_visible_1;
 		let t1;
+		let demopanel;
 		let t2;
+		let description;
 		let t3;
+		let properties_1;
 		let current;
 
 		function sidepanel0_visible_binding(value) {
@@ -40908,11 +42276,11 @@ var app = (function () {
 			sidepanel0_props.visible = /*leftVisible*/ ctx[0];
 		}
 
-		const sidepanel0 = new Sidepanel({ props: sidepanel0_props, $$inline: true });
+		sidepanel0 = new Sidepanel({ props: sidepanel0_props, $$inline: true });
 		binding_callbacks.push(() => bind(sidepanel0, "visible", sidepanel0_visible_binding));
 
-		function sidepanel1_visible_binding(value_1) {
-			/*sidepanel1_visible_binding*/ ctx[3].call(null, value_1);
+		function sidepanel1_visible_binding(value) {
+			/*sidepanel1_visible_binding*/ ctx[3].call(null, value);
 		}
 
 		let sidepanel1_props = {
@@ -40925,10 +42293,10 @@ var app = (function () {
 			sidepanel1_props.visible = /*rightVisible*/ ctx[1];
 		}
 
-		const sidepanel1 = new Sidepanel({ props: sidepanel1_props, $$inline: true });
+		sidepanel1 = new Sidepanel({ props: sidepanel1_props, $$inline: true });
 		binding_callbacks.push(() => bind(sidepanel1, "visible", sidepanel1_visible_binding));
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_1$i],
@@ -40939,7 +42307,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$n] },
 					$$scope: { ctx }
@@ -40947,7 +42315,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$b },
 				$$inline: true
 			});
@@ -41062,17 +42430,25 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$F($$self, $$props, $$invalidate) {
+	function instance$K($$self, $$props, $$invalidate) {
 		let leftVisible = false;
 		let rightVisible = false;
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Sidepanel> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Sidepanel", $$slots, []);
 
 		function sidepanel0_visible_binding(value) {
 			leftVisible = value;
 			$$invalidate(0, leftVisible);
 		}
 
-		function sidepanel1_visible_binding(value_1) {
-			rightVisible = value_1;
+		function sidepanel1_visible_binding(value) {
+			rightVisible = value;
 			$$invalidate(1, rightVisible);
 		}
 
@@ -41084,14 +42460,27 @@ var app = (function () {
 			$$invalidate(1, rightVisible = true);
 		};
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Button,
+			Sidepanel,
+			DemoPanel,
+			Description,
+			Properties,
+			code: code$e,
+			doc: doc$c,
+			properties: properties$b,
+			leftVisible,
+			rightVisible
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("leftVisible" in $$props) $$invalidate(0, leftVisible = $$props.leftVisible);
 			if ("rightVisible" in $$props) $$invalidate(1, rightVisible = $$props.rightVisible);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			leftVisible,
@@ -41106,7 +42495,7 @@ var app = (function () {
 	class Sidepanel_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$F, create_fragment$K, safe_not_equal, {});
+			init(this, options, instance$K, create_fragment$K, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -41166,7 +42555,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\snackbar\Snackbar.svelte generated by Svelte v3.16.0 */
+	/* src\pages\snackbar\Snackbar.svelte generated by Svelte v3.23.2 */
 	const file$L = "src\\pages\\snackbar\\Snackbar.svelte";
 
 	// (4:2) <Button color={btcolors[type]} on:click={() => (visible = false)}>
@@ -41199,9 +42588,10 @@ var app = (function () {
 	// (3:1) <span slot="action">
 	function create_action_slot$4(ctx) {
 		let span;
+		let button;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					color: /*btcolors*/ ctx[7][/*type*/ ctx[4]],
 					$$slots: { default: [create_default_slot_10$3] },
@@ -41360,10 +42750,11 @@ var app = (function () {
 
 	// (8:0) <DemoPanel>
 	function create_default_slot_7$5(ctx) {
+		let button;
 		let t;
 		let current;
 
-		const button = new Button({
+		button = new Button({
 				props: {
 					color: "primary",
 					outlined: true,
@@ -41558,20 +42949,27 @@ var app = (function () {
 	// (18:0) <Play>
 	function create_default_slot_1$j(ctx) {
 		let div0;
+		let radio0;
 		let updating_group;
 		let t0;
+		let radio1;
 		let updating_group_1;
 		let t1;
+		let radio2;
 		let updating_group_2;
 		let t2;
+		let radio3;
 		let updating_group_3;
 		let t3;
 		let div1;
+		let checkbox;
 		let updating_checked;
 		let t4;
 		let div2;
+		let textfield0;
 		let updating_value;
 		let t5;
+		let textfield1;
 		let updating_value_1;
 		let current;
 
@@ -41590,11 +42988,11 @@ var app = (function () {
 			radio0_props.group = /*type*/ ctx[4];
 		}
 
-		const radio0 = new Radio({ props: radio0_props, $$inline: true });
+		radio0 = new Radio({ props: radio0_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio0, "group", radio0_group_binding));
 
-		function radio1_group_binding(value_1) {
-			/*radio1_group_binding*/ ctx[12].call(null, value_1);
+		function radio1_group_binding(value) {
+			/*radio1_group_binding*/ ctx[12].call(null, value);
 		}
 
 		let radio1_props = {
@@ -41607,11 +43005,11 @@ var app = (function () {
 			radio1_props.group = /*type*/ ctx[4];
 		}
 
-		const radio1 = new Radio({ props: radio1_props, $$inline: true });
+		radio1 = new Radio({ props: radio1_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio1, "group", radio1_group_binding));
 
-		function radio2_group_binding(value_2) {
-			/*radio2_group_binding*/ ctx[13].call(null, value_2);
+		function radio2_group_binding(value) {
+			/*radio2_group_binding*/ ctx[13].call(null, value);
 		}
 
 		let radio2_props = {
@@ -41624,11 +43022,11 @@ var app = (function () {
 			radio2_props.group = /*type*/ ctx[4];
 		}
 
-		const radio2 = new Radio({ props: radio2_props, $$inline: true });
+		radio2 = new Radio({ props: radio2_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio2, "group", radio2_group_binding));
 
-		function radio3_group_binding(value_3) {
-			/*radio3_group_binding*/ ctx[14].call(null, value_3);
+		function radio3_group_binding(value) {
+			/*radio3_group_binding*/ ctx[14].call(null, value);
 		}
 
 		let radio3_props = {
@@ -41641,11 +43039,11 @@ var app = (function () {
 			radio3_props.group = /*type*/ ctx[4];
 		}
 
-		const radio3 = new Radio({ props: radio3_props, $$inline: true });
+		radio3 = new Radio({ props: radio3_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio3, "group", radio3_group_binding));
 
-		function checkbox_checked_binding(value_4) {
-			/*checkbox_checked_binding*/ ctx[15].call(null, value_4);
+		function checkbox_checked_binding(value) {
+			/*checkbox_checked_binding*/ ctx[15].call(null, value);
 		}
 
 		let checkbox_props = {
@@ -41657,11 +43055,11 @@ var app = (function () {
 			checkbox_props.checked = /*bottom*/ ctx[3];
 		}
 
-		const checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
+		checkbox = new Checkbox({ props: checkbox_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox, "checked", checkbox_checked_binding));
 
-		function textfield0_value_binding(value_5) {
-			/*textfield0_value_binding*/ ctx[16].call(null, value_5);
+		function textfield0_value_binding(value) {
+			/*textfield0_value_binding*/ ctx[16].call(null, value);
 		}
 
 		let textfield0_props = {
@@ -41675,11 +43073,11 @@ var app = (function () {
 			textfield0_props.value = /*message*/ ctx[2];
 		}
 
-		const textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
+		textfield0 = new Textfield({ props: textfield0_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield0, "value", textfield0_value_binding));
 
-		function textfield1_value_binding(value_6) {
-			/*textfield1_value_binding*/ ctx[17].call(null, value_6);
+		function textfield1_value_binding(value) {
+			/*textfield1_value_binding*/ ctx[17].call(null, value);
 		}
 
 		let textfield1_props = {
@@ -41695,7 +43093,7 @@ var app = (function () {
 			textfield1_props.value = /*timeout*/ ctx[1];
 		}
 
-		const textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
+		textfield1 = new Textfield({ props: textfield1_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield1, "value", textfield1_value_binding));
 
 		const block = {
@@ -41879,10 +43277,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$d, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$d, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -41902,11 +43300,16 @@ var app = (function () {
 	}
 
 	function create_fragment$L(ctx) {
+		let snackbar;
 		let updating_visible;
 		let t0;
+		let demopanel;
 		let t1;
+		let play;
 		let t2;
+		let description;
 		let t3;
+		let properties_1;
 		let current;
 
 		function snackbar_visible_binding(value) {
@@ -41929,10 +43332,10 @@ var app = (function () {
 			snackbar_props.visible = /*visible*/ ctx[0];
 		}
 
-		const snackbar = new Snackbar({ props: snackbar_props, $$inline: true });
+		snackbar = new Snackbar({ props: snackbar_props, $$inline: true });
 		binding_callbacks.push(() => bind(snackbar, "visible", snackbar_visible_binding));
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_7$5],
@@ -41943,7 +43346,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$j] },
 					$$scope: { ctx }
@@ -41951,7 +43354,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$o] },
 					$$scope: { ctx }
@@ -41959,7 +43362,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$c },
 				$$inline: true
 			});
@@ -42071,7 +43474,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$G($$self, $$props, $$invalidate) {
+	function instance$L($$self, $$props, $$invalidate) {
 		let visible = false;
 		let timeout = 5;
 		let message = "Snackbar message!";
@@ -42080,6 +43483,14 @@ var app = (function () {
 		let type = "0";
 		let bgs = ["rgba(0,0,0,.87)", "#1976d2", "#43a047", "#f44336"];
 		let btcolors = ["#f50057", "#ff0", "#ff0", "#ff0"];
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Snackbar> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Snackbar", $$slots, []);
 		const click_handler = () => $$invalidate(0, visible = false);
 
 		function snackbar_visible_binding(value) {
@@ -42094,39 +43505,58 @@ var app = (function () {
 			$$invalidate(4, type);
 		}
 
-		function radio1_group_binding(value_1) {
-			type = value_1;
+		function radio1_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function radio2_group_binding(value_2) {
-			type = value_2;
+		function radio2_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function radio3_group_binding(value_3) {
-			type = value_3;
+		function radio3_group_binding(value) {
+			type = value;
 			$$invalidate(4, type);
 		}
 
-		function checkbox_checked_binding(value_4) {
-			bottom = value_4;
+		function checkbox_checked_binding(value) {
+			bottom = value;
 			$$invalidate(3, bottom);
 		}
 
-		function textfield0_value_binding(value_5) {
-			message = value_5;
+		function textfield0_value_binding(value) {
+			message = value;
 			$$invalidate(2, message);
 		}
 
-		function textfield1_value_binding(value_6) {
-			timeout = value_6;
+		function textfield1_value_binding(value) {
+			timeout = value;
 			$$invalidate(1, timeout);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Snackbar,
+			Button,
+			Checkbox,
+			Radio,
+			Textfield,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$f,
+			doc: doc$d,
+			properties: properties$c,
+			visible,
+			timeout,
+			message,
+			color,
+			bottom,
+			type,
+			bgs,
+			btcolors
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("visible" in $$props) $$invalidate(0, visible = $$props.visible);
@@ -42138,6 +43568,10 @@ var app = (function () {
 			if ("bgs" in $$props) $$invalidate(6, bgs = $$props.bgs);
 			if ("btcolors" in $$props) $$invalidate(7, btcolors = $$props.btcolors);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			visible,
@@ -42164,7 +43598,7 @@ var app = (function () {
 	class Snackbar_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$G, create_fragment$L, safe_not_equal, {});
+			init(this, options, instance$L, create_fragment$L, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -42243,7 +43677,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\pages\textfield\Textfield.svelte generated by Svelte v3.16.0 */
+	/* src\pages\textfield\Textfield.svelte generated by Svelte v3.23.2 */
 	const file$M = "src\\pages\\textfield\\Textfield.svelte";
 
 	// (18:1) <div slot="code">
@@ -42284,12 +43718,13 @@ var app = (function () {
 	// (1:0) <DemoPanel>
 	function create_default_slot_9$5(ctx) {
 		let div;
+		let textfield;
 		let updating_value;
 		let t;
 		let current;
 
-		function textfield_value_binding(value_1) {
-			/*textfield_value_binding*/ ctx[11].call(null, value_1);
+		function textfield_value_binding(value) {
+			/*textfield_value_binding*/ ctx[11].call(null, value);
 		}
 
 		let textfield_props = {
@@ -42308,7 +43743,7 @@ var app = (function () {
 			textfield_props.value = /*value*/ ctx[2];
 		}
 
-		const textfield = new Textfield({ props: textfield_props, $$inline: true });
+		textfield = new Textfield({ props: textfield_props, $$inline: true });
 		binding_callbacks.push(() => bind(textfield, "value", textfield_value_binding));
 
 		const block = {
@@ -42585,25 +44020,33 @@ var app = (function () {
 		let t7;
 		let div3;
 		let div1;
+		let radio0;
 		let updating_group;
 		let t8;
+		let radio1;
 		let updating_group_1;
 		let t9;
+		let radio2;
 		let updating_group_2;
 		let t10;
 		let div2;
+		let checkbox0;
 		let updating_checked;
 		let t11;
+		let checkbox1;
 		let updating_checked_1;
 		let t12;
+		let checkbox2;
 		let updating_checked_2;
 		let t13;
+		let checkbox3;
 		let updating_checked_3;
 		let current;
+		let mounted;
 		let dispose;
 
-		function radio0_group_binding(value_1) {
-			/*radio0_group_binding*/ ctx[16].call(null, value_1);
+		function radio0_group_binding(value) {
+			/*radio0_group_binding*/ ctx[16].call(null, value);
 		}
 
 		let radio0_props = {
@@ -42617,11 +44060,11 @@ var app = (function () {
 			radio0_props.group = /*type*/ ctx[10];
 		}
 
-		const radio0 = new Radio({ props: radio0_props, $$inline: true });
+		radio0 = new Radio({ props: radio0_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio0, "group", radio0_group_binding));
 
-		function radio1_group_binding(value_2) {
-			/*radio1_group_binding*/ ctx[17].call(null, value_2);
+		function radio1_group_binding(value) {
+			/*radio1_group_binding*/ ctx[17].call(null, value);
 		}
 
 		let radio1_props = {
@@ -42634,11 +44077,11 @@ var app = (function () {
 			radio1_props.group = /*type*/ ctx[10];
 		}
 
-		const radio1 = new Radio({ props: radio1_props, $$inline: true });
+		radio1 = new Radio({ props: radio1_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio1, "group", radio1_group_binding));
 
-		function radio2_group_binding(value_3) {
-			/*radio2_group_binding*/ ctx[18].call(null, value_3);
+		function radio2_group_binding(value) {
+			/*radio2_group_binding*/ ctx[18].call(null, value);
 		}
 
 		let radio2_props = {
@@ -42651,11 +44094,11 @@ var app = (function () {
 			radio2_props.group = /*type*/ ctx[10];
 		}
 
-		const radio2 = new Radio({ props: radio2_props, $$inline: true });
+		radio2 = new Radio({ props: radio2_props, $$inline: true });
 		binding_callbacks.push(() => bind(radio2, "group", radio2_group_binding));
 
-		function checkbox0_checked_binding(value_4) {
-			/*checkbox0_checked_binding*/ ctx[19].call(null, value_4);
+		function checkbox0_checked_binding(value) {
+			/*checkbox0_checked_binding*/ ctx[19].call(null, value);
 		}
 
 		let checkbox0_props = {
@@ -42667,11 +44110,11 @@ var app = (function () {
 			checkbox0_props.checked = /*messagePersist*/ ctx[5];
 		}
 
-		const checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
+		checkbox0 = new Checkbox({ props: checkbox0_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox0, "checked", checkbox0_checked_binding));
 
-		function checkbox1_checked_binding(value_5) {
-			/*checkbox1_checked_binding*/ ctx[20].call(null, value_5);
+		function checkbox1_checked_binding(value) {
+			/*checkbox1_checked_binding*/ ctx[20].call(null, value);
 		}
 
 		let checkbox1_props = {
@@ -42683,11 +44126,11 @@ var app = (function () {
 			checkbox1_props.checked = /*required*/ ctx[1];
 		}
 
-		const checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
+		checkbox1 = new Checkbox({ props: checkbox1_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox1, "checked", checkbox1_checked_binding));
 
-		function checkbox2_checked_binding(value_6) {
-			/*checkbox2_checked_binding*/ ctx[21].call(null, value_6);
+		function checkbox2_checked_binding(value) {
+			/*checkbox2_checked_binding*/ ctx[21].call(null, value);
 		}
 
 		let checkbox2_props = {
@@ -42699,11 +44142,11 @@ var app = (function () {
 			checkbox2_props.checked = /*readonly*/ ctx[8];
 		}
 
-		const checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
+		checkbox2 = new Checkbox({ props: checkbox2_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox2, "checked", checkbox2_checked_binding));
 
-		function checkbox3_checked_binding(value_7) {
-			/*checkbox3_checked_binding*/ ctx[22].call(null, value_7);
+		function checkbox3_checked_binding(value) {
+			/*checkbox3_checked_binding*/ ctx[22].call(null, value);
 		}
 
 		let checkbox3_props = {
@@ -42715,7 +44158,7 @@ var app = (function () {
 			checkbox3_props.checked = /*disabled*/ ctx[9];
 		}
 
-		const checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
+		checkbox3 = new Checkbox({ props: checkbox3_props, $$inline: true });
 		binding_callbacks.push(() => bind(checkbox3, "checked", checkbox3_checked_binding));
 
 		const block = {
@@ -42779,13 +44222,6 @@ var app = (function () {
 				add_location(div2, file$M, 51, 2, 999);
 				attr_dev(div3, "class", "properties svelte-1szi8y9");
 				add_location(div3, file$M, 44, 1, 756);
-
-				dispose = [
-					listen_dev(input0, "input", /*input0_input_handler*/ ctx[12]),
-					listen_dev(input1, "input", /*input1_input_handler*/ ctx[13]),
-					listen_dev(input2, "input", /*input2_input_handler*/ ctx[14]),
-					listen_dev(input3, "input", /*input3_input_handler*/ ctx[15])
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div0, anchor);
@@ -42826,6 +44262,17 @@ var app = (function () {
 				append_dev(div2, t13);
 				mount_component(checkbox3, div2, null);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input0, "input", /*input0_input_handler*/ ctx[12]),
+						listen_dev(input1, "input", /*input1_input_handler*/ ctx[13]),
+						listen_dev(input2, "input", /*input2_input_handler*/ ctx[14]),
+						listen_dev(input3, "input", /*input3_input_handler*/ ctx[15])
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, dirty) {
 				if (dirty & /*value*/ 4 && input0.value !== /*value*/ ctx[2]) {
@@ -42968,6 +44415,7 @@ var app = (function () {
 				destroy_component(checkbox1);
 				destroy_component(checkbox2);
 				destroy_component(checkbox3);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -42989,10 +44437,10 @@ var app = (function () {
 
 		const block = {
 			c: function create() {
-				html_tag = new HtmlTag(doc$e, null);
+				html_tag = new HtmlTag(null);
 			},
 			m: function mount(target, anchor) {
-				html_tag.m(target, anchor);
+				html_tag.m(doc$e, target, anchor);
 			},
 			p: noop,
 			d: function destroy(detaching) {
@@ -43012,12 +44460,16 @@ var app = (function () {
 	}
 
 	function create_fragment$M(ctx) {
+		let demopanel;
 		let t0;
+		let play;
 		let t1;
+		let description;
 		let t2;
+		let properties_1;
 		let current;
 
-		const demopanel = new DemoPanel({
+		demopanel = new DemoPanel({
 				props: {
 					$$slots: {
 						default: [create_default_slot_9$5],
@@ -43028,7 +44480,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const play = new Play({
+		play = new Play({
 				props: {
 					$$slots: { default: [create_default_slot_1$k] },
 					$$scope: { ctx }
@@ -43036,7 +44488,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const description = new Description({
+		description = new Description({
 				props: {
 					$$slots: { default: [create_default_slot$p] },
 					$$scope: { ctx }
@@ -43044,7 +44496,7 @@ var app = (function () {
 				$$inline: true
 			});
 
-		const properties_1 = new Properties({
+		properties_1 = new Properties({
 				props: { data: properties$d },
 				$$inline: true
 			});
@@ -43132,7 +44584,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$H($$self, $$props, $$invalidate) {
+	function instance$M($$self, $$props, $$invalidate) {
 		let label = "Label";
 		let required = true;
 		let value = "";
@@ -43144,9 +44596,17 @@ var app = (function () {
 		let readonly = false;
 		let disabled = false;
 		let type = "default";
+		const writable_props = [];
 
-		function textfield_value_binding(value_1) {
-			value = value_1;
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<Textfield> was created with unknown prop '${key}'`);
+		});
+
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("Textfield", $$slots, []);
+
+		function textfield_value_binding(value$1) {
+			value = value$1;
 			$$invalidate(2, value);
 		}
 
@@ -43170,44 +44630,64 @@ var app = (function () {
 			$$invalidate(3, error);
 		}
 
-		function radio0_group_binding(value_1) {
-			type = value_1;
+		function radio0_group_binding(value) {
+			type = value;
 			$$invalidate(10, type);
 		}
 
-		function radio1_group_binding(value_2) {
-			type = value_2;
+		function radio1_group_binding(value) {
+			type = value;
 			$$invalidate(10, type);
 		}
 
-		function radio2_group_binding(value_3) {
-			type = value_3;
+		function radio2_group_binding(value) {
+			type = value;
 			$$invalidate(10, type);
 		}
 
-		function checkbox0_checked_binding(value_4) {
-			messagePersist = value_4;
+		function checkbox0_checked_binding(value) {
+			messagePersist = value;
 			$$invalidate(5, messagePersist);
 		}
 
-		function checkbox1_checked_binding(value_5) {
-			required = value_5;
+		function checkbox1_checked_binding(value) {
+			required = value;
 			$$invalidate(1, required);
 		}
 
-		function checkbox2_checked_binding(value_6) {
-			readonly = value_6;
+		function checkbox2_checked_binding(value) {
+			readonly = value;
 			$$invalidate(8, readonly);
 		}
 
-		function checkbox3_checked_binding(value_7) {
-			disabled = value_7;
+		function checkbox3_checked_binding(value) {
+			disabled = value;
 			$$invalidate(9, disabled);
 		}
 
-		$$self.$capture_state = () => {
-			return {};
-		};
+		$$self.$capture_state = () => ({
+			Textfield,
+			Checkbox,
+			Radio,
+			DemoPanel,
+			Play,
+			Description,
+			Properties,
+			code: code$g,
+			doc: doc$e,
+			properties: properties$d,
+			label,
+			required,
+			value,
+			error,
+			message,
+			messagePersist,
+			outlined,
+			filled,
+			readonly,
+			disabled,
+			type
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("label" in $$props) $$invalidate(0, label = $$props.label);
@@ -43222,6 +44702,10 @@ var app = (function () {
 			if ("disabled" in $$props) $$invalidate(9, disabled = $$props.disabled);
 			if ("type" in $$props) $$invalidate(10, type = $$props.type);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		$$self.$$.update = () => {
 			if ($$self.$$.dirty & /*type*/ 1024) {
@@ -43263,7 +44747,7 @@ var app = (function () {
 	class Textfield_1 extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$H, create_fragment$M, safe_not_equal, {});
+			init(this, options, instance$M, create_fragment$M, safe_not_equal, {});
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,
@@ -43365,7 +44849,7 @@ var app = (function () {
 		},
 	];
 
-	/* src\App.svelte generated by Svelte v3.16.0 */
+	/* src\App.svelte generated by Svelte v3.23.2 */
 
 	const { document: document_1, window: window_1$2 } = globals;
 	const file$N = "src\\App.svelte";
@@ -43373,10 +44857,11 @@ var app = (function () {
 	// (21:1) {#if maxWidth > 720}
 	function create_if_block_3$1(ctx) {
 		let div;
+		let nav;
 		let div_transition;
 		let current;
 
-		const nav = new Nav({
+		nav = new Nav({
 				props: {
 					routes: /*sitenav*/ ctx[3],
 					currentPath: /*ctx*/ ctx[2] ? /*ctx*/ ctx[2].path : null
@@ -43388,7 +44873,7 @@ var app = (function () {
 			c: function create() {
 				div = element("div");
 				create_component(nav.$$.fragment);
-				attr_dev(div, "class", "nav-panel svelte-m3lun8");
+				attr_dev(div, "class", "nav-panel svelte-6xopd5");
 				add_location(div, file$N, 21, 2, 527);
 			},
 			m: function mount(target, anchor) {
@@ -43440,6 +44925,7 @@ var app = (function () {
 	// (28:2) {#if page}
 	function create_if_block$j(ctx) {
 		let t0;
+		let switch_instance;
 		let t1;
 		let if_block1_anchor;
 		let current;
@@ -43461,7 +44947,7 @@ var app = (function () {
 		}
 
 		if (switch_value) {
-			var switch_instance = new switch_value(switch_props());
+			switch_instance = new switch_value(switch_props());
 		}
 
 		let if_block1 = /*maxWidth*/ ctx[4] < 721 && /*ctx*/ ctx[2].path === "/" && create_if_block_1$4(ctx);
@@ -43502,7 +44988,7 @@ var app = (function () {
 					if_block0 = null;
 				}
 
-				const switch_instance_changes = dirty & /*ctx*/ 4
+				const switch_instance_changes = (dirty & /*ctx*/ 4)
 				? get_spread_update(switch_instance_spread_levels, [get_spread_object(/*ctx*/ ctx[2])])
 				: {};
 
@@ -43533,7 +45019,10 @@ var app = (function () {
 				if (/*maxWidth*/ ctx[4] < 721 && /*ctx*/ ctx[2].path === "/") {
 					if (if_block1) {
 						if_block1.p(ctx, dirty);
-						transition_in(if_block1, 1);
+
+						if (dirty & /*maxWidth, ctx*/ 20) {
+							transition_in(if_block1, 1);
+						}
 					} else {
 						if_block1 = create_if_block_1$4(ctx);
 						if_block1.c();
@@ -43591,7 +45080,7 @@ var app = (function () {
 			c: function create() {
 				h3 = element("h3");
 				t = text(/*titlePage*/ ctx[1]);
-				attr_dev(h3, "class", "svelte-m3lun8");
+				attr_dev(h3, "class", "svelte-6xopd5");
 				add_location(h3, file$N, 29, 4, 748);
 			},
 			m: function mount(target, anchor) {
@@ -43622,10 +45111,12 @@ var app = (function () {
 		let div;
 		let span;
 		let t1;
+		let icon;
 		let current;
+		let mounted;
 		let dispose;
 
-		const icon = new Icon({
+		icon = new Icon({
 				props: { path: arrowForward },
 				$$inline: true
 			});
@@ -43637,16 +45128,11 @@ var app = (function () {
 				span.textContent = "Explore components";
 				t1 = space();
 				create_component(icon.$$.fragment);
-				attr_dev(span, "class", "svelte-m3lun8");
+				attr_dev(span, "class", "svelte-6xopd5");
 				add_location(span, file$N, 43, 5, 1034);
-				attr_dev(div, "class", "explore svelte-m3lun8");
+				attr_dev(div, "class", "explore svelte-6xopd5");
 				attr_dev(div, "tabindex", "0");
 				add_location(div, file$N, 35, 4, 889);
-
-				dispose = [
-					listen_dev(div, "click", /*click_handler*/ ctx[22], false, false, false),
-					listen_dev(div, "keydown", /*onKeyDown*/ ctx[11], false, false, false)
-				];
 			},
 			m: function mount(target, anchor) {
 				insert_dev(target, div, anchor);
@@ -43654,6 +45140,15 @@ var app = (function () {
 				append_dev(div, t1);
 				mount_component(icon, div, null);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(div, "click", /*click_handler*/ ctx[22], false, false, false),
+						listen_dev(div, "keydown", /*onKeyDown*/ ctx[11], false, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: noop,
 			i: function intro(local) {
@@ -43668,6 +45163,7 @@ var app = (function () {
 			d: function destroy(detaching) {
 				if (detaching) detach_dev(div);
 				destroy_component(icon);
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -43686,14 +45182,18 @@ var app = (function () {
 	function create_fragment$N(ctx) {
 		let title_value;
 		let t0;
+		let appbar;
 		let updating_leftPanelVisible;
 		let updating_rightPanelVisible;
 		let updating_loginDialogVisible;
 		let t1;
+		let leftpanel;
 		let updating_visible;
 		let t2;
+		let rightpanel;
 		let updating_visible_1;
 		let t3;
+		let logindialog;
 		let updating_visible_2;
 		let updating_username;
 		let updating_password;
@@ -43702,6 +45202,7 @@ var app = (function () {
 		let t5;
 		let div;
 		let current;
+		let mounted;
 		let dispose;
 		document_1.title = title_value = "svelte-ui" + (/*titlePage*/ ctx[1] ? `: ${/*titlePage*/ ctx[1]}` : "");
 
@@ -43709,12 +45210,12 @@ var app = (function () {
 			/*appbar_leftPanelVisible_binding*/ ctx[14].call(null, value);
 		}
 
-		function appbar_rightPanelVisible_binding(value_1) {
-			/*appbar_rightPanelVisible_binding*/ ctx[15].call(null, value_1);
+		function appbar_rightPanelVisible_binding(value) {
+			/*appbar_rightPanelVisible_binding*/ ctx[15].call(null, value);
 		}
 
-		function appbar_loginDialogVisible_binding(value_2) {
-			/*appbar_loginDialogVisible_binding*/ ctx[16].call(null, value_2);
+		function appbar_loginDialogVisible_binding(value) {
+			/*appbar_loginDialogVisible_binding*/ ctx[16].call(null, value);
 		}
 
 		let appbar_props = { fade: /*offsetTop*/ ctx[5] > 36 };
@@ -43731,13 +45232,13 @@ var app = (function () {
 			appbar_props.loginDialogVisible = /*loginDialogVisible*/ ctx[8];
 		}
 
-		const appbar = new AppBar({ props: appbar_props, $$inline: true });
+		appbar = new AppBar({ props: appbar_props, $$inline: true });
 		binding_callbacks.push(() => bind(appbar, "leftPanelVisible", appbar_leftPanelVisible_binding));
 		binding_callbacks.push(() => bind(appbar, "rightPanelVisible", appbar_rightPanelVisible_binding));
 		binding_callbacks.push(() => bind(appbar, "loginDialogVisible", appbar_loginDialogVisible_binding));
 
-		function leftpanel_visible_binding(value_3) {
-			/*leftpanel_visible_binding*/ ctx[17].call(null, value_3);
+		function leftpanel_visible_binding(value) {
+			/*leftpanel_visible_binding*/ ctx[17].call(null, value);
 		}
 
 		let leftpanel_props = {
@@ -43749,11 +45250,11 @@ var app = (function () {
 			leftpanel_props.visible = /*leftPanelVisible*/ ctx[6];
 		}
 
-		const leftpanel = new LeftPanel({ props: leftpanel_props, $$inline: true });
+		leftpanel = new LeftPanel({ props: leftpanel_props, $$inline: true });
 		binding_callbacks.push(() => bind(leftpanel, "visible", leftpanel_visible_binding));
 
-		function rightpanel_visible_binding(value_4) {
-			/*rightpanel_visible_binding*/ ctx[18].call(null, value_4);
+		function rightpanel_visible_binding(value) {
+			/*rightpanel_visible_binding*/ ctx[18].call(null, value);
 		}
 
 		let rightpanel_props = {};
@@ -43762,19 +45263,19 @@ var app = (function () {
 			rightpanel_props.visible = /*rightPanelVisible*/ ctx[7];
 		}
 
-		const rightpanel = new RightPanel({ props: rightpanel_props, $$inline: true });
+		rightpanel = new RightPanel({ props: rightpanel_props, $$inline: true });
 		binding_callbacks.push(() => bind(rightpanel, "visible", rightpanel_visible_binding));
 
-		function logindialog_visible_binding(value_5) {
-			/*logindialog_visible_binding*/ ctx[19].call(null, value_5);
+		function logindialog_visible_binding(value) {
+			/*logindialog_visible_binding*/ ctx[19].call(null, value);
 		}
 
-		function logindialog_username_binding(value_6) {
-			/*logindialog_username_binding*/ ctx[20].call(null, value_6);
+		function logindialog_username_binding(value) {
+			/*logindialog_username_binding*/ ctx[20].call(null, value);
 		}
 
-		function logindialog_password_binding(value_7) {
-			/*logindialog_password_binding*/ ctx[21].call(null, value_7);
+		function logindialog_password_binding(value) {
+			/*logindialog_password_binding*/ ctx[21].call(null, value);
 		}
 
 		let logindialog_props = {};
@@ -43791,7 +45292,7 @@ var app = (function () {
 			logindialog_props.password = /*password*/ ctx[10];
 		}
 
-		const logindialog = new LoginDialog({ props: logindialog_props, $$inline: true });
+		logindialog = new LoginDialog({ props: logindialog_props, $$inline: true });
 		binding_callbacks.push(() => bind(logindialog, "visible", logindialog_visible_binding));
 		binding_callbacks.push(() => bind(logindialog, "username", logindialog_username_binding));
 		binding_callbacks.push(() => bind(logindialog, "password", logindialog_password_binding));
@@ -43814,15 +45315,10 @@ var app = (function () {
 				t5 = space();
 				div = element("div");
 				if (if_block1) if_block1.c();
-				attr_dev(div, "class", "page svelte-m3lun8");
+				attr_dev(div, "class", "page svelte-6xopd5");
 				add_location(div, file$N, 26, 1, 693);
-				attr_dev(main, "class", "svelte-m3lun8");
+				attr_dev(main, "class", "svelte-6xopd5");
 				add_location(main, file$N, 19, 0, 496);
-
-				dispose = [
-					listen_dev(window_1$2, "scroll", /*onScroll*/ ctx[13], { passive: true }, false, false),
-					listen_dev(window_1$2, "resize", /*onResize*/ ctx[12], { passive: true }, false, false)
-				];
 			},
 			l: function claim(nodes) {
 				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
@@ -43843,6 +45339,15 @@ var app = (function () {
 				append_dev(main, div);
 				if (if_block1) if_block1.m(div, null);
 				current = true;
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(window_1$2, "scroll", /*onScroll*/ ctx[13], { passive: true }, false, false),
+						listen_dev(window_1$2, "resize", /*onResize*/ ctx[12], { passive: true }, false, false)
+					];
+
+					mounted = true;
+				}
 			},
 			p: function update(ctx, [dirty]) {
 				if ((!current || dirty & /*titlePage*/ 2) && title_value !== (title_value = "svelte-ui" + (/*titlePage*/ ctx[1] ? `: ${/*titlePage*/ ctx[1]}` : ""))) {
@@ -43916,7 +45421,10 @@ var app = (function () {
 				if (/*maxWidth*/ ctx[4] > 720) {
 					if (if_block0) {
 						if_block0.p(ctx, dirty);
-						transition_in(if_block0, 1);
+
+						if (dirty & /*maxWidth*/ 16) {
+							transition_in(if_block0, 1);
+						}
 					} else {
 						if_block0 = create_if_block_3$1(ctx);
 						if_block0.c();
@@ -43936,7 +45444,10 @@ var app = (function () {
 				if (/*page*/ ctx[0]) {
 					if (if_block1) {
 						if_block1.p(ctx, dirty);
-						transition_in(if_block1, 1);
+
+						if (dirty & /*page*/ 1) {
+							transition_in(if_block1, 1);
+						}
 					} else {
 						if_block1 = create_if_block$j(ctx);
 						if_block1.c();
@@ -43985,6 +45496,7 @@ var app = (function () {
 				if (detaching) detach_dev(main);
 				if (if_block0) if_block0.d();
 				if (if_block1) if_block1.d();
+				mounted = false;
 				run_all(dispose);
 			}
 		};
@@ -44000,7 +45512,7 @@ var app = (function () {
 		return block;
 	}
 
-	function instance$I($$self, $$props, $$invalidate) {
+	function instance$N($$self, $$props, $$invalidate) {
 		let { page = null } = $$props;
 		let { titlePage = null } = $$props;
 		let { ctx = null } = $$props;
@@ -44046,43 +45558,46 @@ var app = (function () {
 			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== "$$") console.warn(`<App> was created with unknown prop '${key}'`);
 		});
 
+		let { $$slots = {}, $$scope } = $$props;
+		validate_slots("App", $$slots, []);
+
 		function appbar_leftPanelVisible_binding(value) {
 			leftPanelVisible = value;
 			$$invalidate(6, leftPanelVisible);
 		}
 
-		function appbar_rightPanelVisible_binding(value_1) {
-			rightPanelVisible = value_1;
+		function appbar_rightPanelVisible_binding(value) {
+			rightPanelVisible = value;
 			$$invalidate(7, rightPanelVisible);
 		}
 
-		function appbar_loginDialogVisible_binding(value_2) {
-			loginDialogVisible = value_2;
+		function appbar_loginDialogVisible_binding(value) {
+			loginDialogVisible = value;
 			$$invalidate(8, loginDialogVisible);
 		}
 
-		function leftpanel_visible_binding(value_3) {
-			leftPanelVisible = value_3;
+		function leftpanel_visible_binding(value) {
+			leftPanelVisible = value;
 			$$invalidate(6, leftPanelVisible);
 		}
 
-		function rightpanel_visible_binding(value_4) {
-			rightPanelVisible = value_4;
+		function rightpanel_visible_binding(value) {
+			rightPanelVisible = value;
 			$$invalidate(7, rightPanelVisible);
 		}
 
-		function logindialog_visible_binding(value_5) {
-			loginDialogVisible = value_5;
+		function logindialog_visible_binding(value) {
+			loginDialogVisible = value;
 			$$invalidate(8, loginDialogVisible);
 		}
 
-		function logindialog_username_binding(value_6) {
-			username = value_6;
+		function logindialog_username_binding(value) {
+			username = value;
 			$$invalidate(9, username);
 		}
 
-		function logindialog_password_binding(value_7) {
-			password = value_7;
+		function logindialog_password_binding(value) {
+			password = value;
 			$$invalidate(10, password);
 		}
 
@@ -44096,21 +45611,33 @@ var app = (function () {
 			if ("ctx" in $$props) $$invalidate(2, ctx = $$props.ctx);
 		};
 
-		$$self.$capture_state = () => {
-			return {
-				page,
-				titlePage,
-				ctx,
-				sitenav,
-				maxWidth,
-				offsetTop,
-				leftPanelVisible,
-				rightPanelVisible,
-				loginDialogVisible,
-				username,
-				password
-			};
-		};
+		$$self.$capture_state = () => ({
+			page,
+			titlePage,
+			ctx,
+			onMount,
+			fly,
+			linear: identity,
+			Icon,
+			arrowForward,
+			AppBar,
+			LeftPanel,
+			RightPanel,
+			LoginDialog,
+			Nav,
+			sn: routes,
+			sitenav,
+			maxWidth,
+			offsetTop,
+			leftPanelVisible,
+			rightPanelVisible,
+			loginDialogVisible,
+			username,
+			password,
+			onKeyDown,
+			onResize,
+			onScroll
+		});
 
 		$$self.$inject_state = $$props => {
 			if ("page" in $$props) $$invalidate(0, page = $$props.page);
@@ -44125,6 +45652,10 @@ var app = (function () {
 			if ("username" in $$props) $$invalidate(9, username = $$props.username);
 			if ("password" in $$props) $$invalidate(10, password = $$props.password);
 		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
 
 		return [
 			page,
@@ -44156,7 +45687,7 @@ var app = (function () {
 	class App extends SvelteComponentDev {
 		constructor(options) {
 			super(options);
-			init(this, options, instance$I, create_fragment$N, safe_not_equal, { page: 0, titlePage: 1, ctx: 2 });
+			init(this, options, instance$N, create_fragment$N, safe_not_equal, { page: 0, titlePage: 1, ctx: 2 });
 
 			dispatch_dev("SvelteRegisterComponent", {
 				component: this,

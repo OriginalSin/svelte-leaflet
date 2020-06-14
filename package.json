@@ -27,7 +27,10 @@
     "svelte": "^3.0.0"
   },
   "dependencies": {
-    "leaflet": "^1.6.0"
+    "leaflet": "^1.6.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-svelte": "^5.2.2",
+    "rollup-plugin-terser": "^6.1.0"
   },
   "bugs": {
     "url": "https://github.com/OriginalSin/svelte-leaflet/issues"

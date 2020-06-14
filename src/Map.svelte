@@ -47,8 +47,11 @@
 </div>
 
 <style>
-.map {
+:global(.map) {
    height: 180px;
    width: 100%;
+}
+:global(.leaflet-pane) {
+    z-index: 4;
 }
 </style>

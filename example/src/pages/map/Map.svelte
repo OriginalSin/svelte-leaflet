@@ -30,3 +30,8 @@
 
 	let visible = false;
 </script>
+<style>
+:global(.leaflet-pane) {
+    z-index: 4;
+}
+</style>
