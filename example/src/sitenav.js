@@ -1,6 +1,7 @@
 import Home from '/pages/home';
 import Map from '/pages/map';
 import TileLayer from '/pages/tilelayer';
+/*
 import Button from '/pages/button';
 import ButtonGroup from '/pages/button-group';
 import Checkbox from '/pages/checkbox';
@@ -16,7 +17,7 @@ import Sidepanel from '/pages/sidepanel';
 import Snackbar from '/pages/snackbar';
 import Textfield from '/pages/textfield';
 import { NotFound } from '/pages/errors';
-
+*/
 let routes = [
 	{
 		path: '/home',
@@ -32,6 +33,7 @@ let routes = [
 		component: TileLayer,
 		name: 'TileLayer',
 	},
+/*
 	{
 		path: '/button',
 		component: Button,
@@ -102,6 +104,7 @@ let routes = [
 		component: Textfield,
 		name: 'Textfield',
 	},
+	*/
 	{
 		path: '*',
 		component: Home,
