@@ -5,7 +5,7 @@
   "author": "OriginalSin <serg@auchat.ru>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/vikignt/svelte-ui.git"
+    "url": "https://github.com/OriginalSin/svelte-leaflet.git"
   },
   "license": "MIT",
   "svelte": "src/index.js",
