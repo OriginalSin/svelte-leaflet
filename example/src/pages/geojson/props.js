@@ -10,5 +10,5 @@ export default [
 		def: "{}",
 		type: 'json',
 		desc: 'options geoJSON object',
-	},
+	}
 ];

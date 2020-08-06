@@ -4,12 +4,8 @@
 		<GeoJSON
 			url = './data/landsat8_1.geojson'
 			options={{
-				style: function() {
-					return {
-						fill: false
-					};
-				},
-				filter: function(feature) {
+				style: () => { return { fill: false }; },
+				filter: (feature) => {
 					let dt = new Date(feature.properties.ACQ_DATE);
 					return dt.getMonth() === 11;
 				}
