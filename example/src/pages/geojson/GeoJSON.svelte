@@ -1,9 +1,20 @@
 <DemoPanel>
-	<Map
-		center={[55.751849, 37.595214]}
-		zoom={8}
-	>
+	<Map center={[52.176700, 69.555840]} zoom={4}>
 		<TileLayer />
+		<GeoJSON
+			url = './data/landsat8_1.geojson'
+			options={{
+				style: function() {
+					return {
+						fill: false
+					};
+				},
+				filter: function(feature) {
+					let dt = new Date(feature.properties.ACQ_DATE);
+					return dt.getMonth() === 11;
+				}
+			}}
+		/>
 	</Map>
 
 	<div slot="code">
@@ -20,18 +31,11 @@
 <Properties data={properties} />
 
 <script>
-	import { Map } from '/../../src';
-	import { TileLayer } from '/../../src';
+	import { Map, TileLayer, GeoJSON } from '/../../src';
 	import { DemoPanel, Description, Properties } from '/components/demo';
 
 	import code from './code.md';
 	import doc from './doc.md';
 	import properties from './props';
 
-	let visible = false;
 </script>
-<style>
-:global(.leaflet-pane) {
-    z-index: 4;
-}
-</style>

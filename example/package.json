@@ -9,7 +9,8 @@
     },
     "license": "MIT",
     "scripts": {
-        "build": "rimraf public/* && rollup -c && npm run zip",
+        "build": "rollup -c",
+        "build:rm": "rimraf public/* && rollup -c && npm run zip",
         "build:legacy": "rimraf public/* && rollup -c --environment BUILD_LEGACY && npm run zip",
         "zip": "gzip -9k public/bundle.*",
         "autobuild": "rollup -c -w",

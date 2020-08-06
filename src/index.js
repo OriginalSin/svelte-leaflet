@@ -14,10 +14,12 @@ import Snackbar from './Snackbar.svelte';
 import Textfield from './Textfield.svelte';
 import Map from './Map.svelte';
 import TileLayer from './TileLayer.svelte';
+import GeoJSON from './GeoJSON.svelte';
 
 export {
 	Map,
 	TileLayer,
+	GeoJSON,
 
 	Button,
 	ButtonGroup,

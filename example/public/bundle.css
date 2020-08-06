@@ -1,13 +1,3 @@
-.box.svelte-19t7svq{cursor:pointer;-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;box-sizing:border-box;border-radius:4px;border:1px solid #1976d2;border:1px solid var(--primary);display:inline-block;margin:0 1rem 1rem 0;padding:0.75rem}.box.svelte-19t7svq .ripple{border-radius:0 !important}.filled.svelte-19t7svq{color:#fff;color:var(--alternate);background:#1976d2;background:var(--primary)}.bordered.svelte-19t7svq{color:#1976d2;color:var(--primary)}
-label.svelte-1szi8y9.svelte-1szi8y9{width:100%;font-size:13px;color:rgba(0, 0, 0, 0.3755);color:var(--label)}input.svelte-1szi8y9.svelte-1szi8y9{width:100%;font-family:inherit;font-size:16px !important;color:#333;color:var(--color);background:#fbfbfb;background:var(--bg-color);padding:6px;margin:4px 0 4px 0;border:1px solid rgba(0, 0, 0, 0.1);border:1px solid var(--divider);border-radius:2px}.properties.svelte-1szi8y9.svelte-1szi8y9{display:flex;flex-wrap:wrap;justify-content:space-around;align-items:flex-start;width:100%}.between.svelte-1szi8y9.svelte-1szi8y9{justify-content:space-between}.properties.svelte-1szi8y9 label.svelte-1szi8y9{width:48%}
-input.svelte-12fr0pl{width:4rem;font-family:inherit;font-size:inherit;color:#333;color:var(--color);background:#fbfbfb;background:var(--bg-color);padding:6px;margin:4px 0 4px 0;border:1px solid rgba(0, 0, 0, 0.1);border:1px solid var(--divider);border-radius:2px}
-.demo-content.svelte-1w5u6lp{margin-bottom:1em;width:100%}.demo-content.svelte-1w5u6lp button{margin:0}
-.card.svelte-1oil50b{display:inline-block;box-shadow:0 3px 3px -2px rgba(0, 0, 0, 0.2), 0 3px 4px 0 rgba(0, 0, 0, 0.14),
-			0 1px 8px 0 rgba(0, 0, 0, 0.12)}
-.toolbar.svelte-1albt1k{height:48px;padding:0 4px 0 1rem;display:flex;align-items:center;color:#fff;background:#888;background:var(--bg-app-bar)}
-@media only screen and (max-width: 480px){.svelte-1wz33vu.properties>div.svelte-1wz33vu{width:70%}}
-.text-fields.svelte-2xizlo{display:flex;flex:1 1 100%;justify-content:space-around;align-items:flex-start;background:#fbfbfb;background:var(--bg-color)}
-.wrapper.svelte-otuufs{width:100%}.wrapper.svelte-otuufs .thin{margin-top:-8px !important}
 :root {
 	--color: #333;
 	--alternate: #fff;

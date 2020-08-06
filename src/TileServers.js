@@ -99,4 +99,9 @@ export default {
         description: 'CartoDB Dark Matter 2',
         url: 'http://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
     },
+    'landsat8': {
+        attribution: '<a href="https://earthexplorer.usgs.gov/">USGS</a>',
+        description: 'Landsat8',
+        url: './data/landsat8_1.geojson'
+    },
 };

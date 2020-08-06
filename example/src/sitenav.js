@@ -1,6 +1,7 @@
 import Home from '/pages/home';
 import Map from '/pages/map';
 import TileLayer from '/pages/tilelayer';
+import GeoJSON from '/pages/geojson';
 /*
 import Button from '/pages/button';
 import ButtonGroup from '/pages/button-group';
@@ -32,6 +33,11 @@ let routes = [
 		path: '/tilelayer',
 		component: TileLayer,
 		name: 'TileLayer',
+	},
+	{
+		path: '/geojson',
+		component: GeoJSON,
+		name: 'GeoJSON',
 	},
 /*
 	{

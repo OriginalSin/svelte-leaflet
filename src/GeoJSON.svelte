@@ -5,14 +5,18 @@
     import TileServers from './TileServers.js';
     import { onMount, getContext } from 'svelte';
 
-	const mapnik = TileServers['osm.mapnik'];
-	export let url = mapnik.url;
-	export let options = mapnik;
+	let landsat8 = TileServers['landsat8'];
+	export let url;
+	export let options;
 
     onMount(() => {
 		L.Map.addInitHook(function() {
 			const map = this;
-			L.tileLayer(url, options).addTo(map);
+			fetch(url || landsat8.url)
+			.then(req => req.json())
+			.then(json => {
+				L.geoJson(json, options).addTo(map);
+			});
 		});
     });
         
