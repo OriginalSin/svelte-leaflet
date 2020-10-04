@@ -1,7 +1,7 @@
 <DemoPanel>
 	<Map>
 		<TileLayer
-			url = {'http://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'}
+			url = {'//{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png'}
 			options = {{
 				minZoom: 2,
 				maxZoom: 5,
@@ -32,6 +32,6 @@
 	import doc from './doc.md';
 	import properties from './props';
 
-	let url = 'http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+	let url = '//{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
 
 </script>

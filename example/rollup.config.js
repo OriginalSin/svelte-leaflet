@@ -22,7 +22,7 @@ export default {
 		sourcemap: !production,
 		format: 'iife',
 		name: 'app',
-		file: 'public/bundle.js',
+		file: 'public/svelte-leaflet.js',
 	},
 	plugins: [
 		root({

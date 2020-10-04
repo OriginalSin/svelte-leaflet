@@ -15,7 +15,10 @@
 			fetch(url || landsat8.url)
 			.then(req => req.json())
 			.then(json => {
-				L.geoJson(json, options).addTo(map);
+				L.geoJson(json, options)
+				.bindPopup(function (layer) {
+					return JSON.stringify(layer.feature.properties, null, 2);
+				}).addTo(map);
 			});
 		});
     });
